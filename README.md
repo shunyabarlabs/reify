@@ -1,5 +1,7 @@
 # Reify (`reify`)
 
+![img](navokoj_grid.png)
+
 **Reify** is a domain-neutral declarative D SDK, decision compiler, and CLI toolchain for high-performance constraint intelligence engines.
 
 In programming language theory, to *reify* is to turn an abstract concept into a concrete, executable object. With **Reify**, a decision model declares symbolic variables, constraints, preferences, and objectives once. The compiler reifies possible problem worlds into concrete solver artifacts (`SolverArtifact`) — automatically selecting an optimal backend representation (CNF, WCNF, Hybrid CNF+XOR, Q-State, or OPB), querying account entitlements, submitting to the backend API or local solver, hydrating returned variable assignments, and locally verifying domain constraints.
