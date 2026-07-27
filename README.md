@@ -12,14 +12,179 @@ Execution is vendor-neutral and extensible: `SolverBackend` owns solver executio
 
 ## Key Features
 
-- **Declarative D SDK**: Clean import surface via `import reify;` (or custom backend extensions)
-- **Vendor-Neutral Architecture**: Pluggable `SolverBackend` and `SolverResponseParser` interfaces decouple modeling from target solvers
-- **Dynamic Capability Discovery**: Live runtime query of account tier limits (`maxVariables`, `maxClauses`, allowed engines, remaining credits, hardware access)
-- **Multi-Format Ingestion & Export**: Direct support for declarative JSON model documents, DIMACS CNF, and linear OPB files or standard input streams
-- **Rich Decision Types**: Boolean, categorical (one-hot), and order-encoded bounded-integer decision variables
-- **SpaceTime Policy Framework**: Relational temporal projection over decision spaces with composable scheduling policies (`duration`, `within`, `nonOverlapping`, `capacity`) and transparent plan explainability (`explainPlan()`)
-- **Automated Backend Routing**: Deterministic selection between Q-State, hybrid CNF+XOR, continuous MaxSAT manifolds, or linear OPB encodings
-- **Local Verification & Auditability**: Every returned solver assignment is hydrated and independently verified against original domain constraints before presentation
+- **Declarative D SDK**: Clean import surface via `import reify;` (or custom backend extensions).
+- **Vendor-Neutral Architecture**: Pluggable `SolverBackend` and `SolverResponseParser` interfaces decouple modeling from target solvers.
+- **Dynamic Capability Discovery**: Live runtime query of account tier limits (`maxVariables`, `maxClauses`, allowed engines, remaining credits, hardware access).
+- **Multi-Format Ingestion & Export**: Direct support for declarative JSON model documents, DIMACS CNF/WCNF, and linear OPB files or standard input streams.
+- **Rich Decision Types**: Boolean, categorical (single-hot), and order-encoded bounded-integer decision variables.
+- **SpaceTime Policy Framework**: Relational temporal projection over decision spaces with composable scheduling recipes (`duration`, `within`, `before`, `nonOverlapping`, `capacity`, `prefer`).
+- **Transparent Plan Explainability (`explainPlan()`)**: Full-stack auditability across pre-compilation logical plans, physical routing/encoding plans, execution traces, and policy causality explanations.
+- **Automated Backend Routing**: Deterministic topology-based selection between Q-State (continuous manifold), Nitro MaxSAT (H100 GPU), SUTRA (C CPU micro-kernel for 100M+ clauses), or NitroSAT v3 (hybrid CNF+XOR with Gaussian elimination).
+- **Local Verification & Auditability**: Every returned solver assignment is hydrated and independently verified against original domain constraints before presentation.
+
+---
+
+## Technical Architecture & Subsystems
+
+```mermaid
+graph TD
+    A[Declarative D SDK / JSON Model / DIMACS / OPB] --> B[Model IR & Symbolic AST Pool]
+    B --> C[SpaceTime Temporal Substrate]
+    B --> D[Topology Analysis & Diagnostics]
+    D --> E[Automated Backend Router]
+    B --> F[Tseitin Compiler Pipeline]
+    F --> G[SolverArtifact Target Payload]
+    E --> H[Vendor-Neutral SolverBackend Interface]
+    H --> I[Navokoj API Reference Backend / Solvers]
+    I --> J[Response Parser & Solution Hydration]
+    J --> K[Local Constraint Verification & Audit]
+    K --> L[Explainability Engine - explainPlan]
+```
+
+### 1. Symbolic Model IR & Arena Memory Management (`reify.model`)
+- **Symbolic AST**: `ExpressionNode` representing `booleanConstant`, `integerConstant`, `variable`, logical connectives (`and`, `or`, `xor`, `implies`, `iff`), comparisons (`eq`, `ne`, `lt`, `le`, `gt`, `ge`), arithmetic (`add`, `sub`, `mul`, `neg`), and N-ary primitives (`allDifferent`, `atMost`, `atLeast`, `exactly`).
+- **Arena Memory Allocation**: `ExpressionNodePool` pre-allocates 16,384-node contiguous chunks to eliminate GC overhead during symbolic AST construction.
+- **Typed Decision Variables**:
+  - `BoolExpr`: Propositional Boolean decision variables with operator overloading (`~`, `&`, `|`, `^`).
+  - `IntExpr`: Order-encoded bounded integer variables ($[L, U]$) supporting symbolic linear arithmetic.
+  - `CategoryExpr`: Categorical variables backed by finite state spaces, offering single-hot domain mappings (`equals`, `differs`, `same`, `different`).
+
+### 2. SpaceTime Relational Temporal Substrate (`reify.spacetime`)
+- **Kripke-Inspired Semantics**: Models finite decision spaces as possible worlds ($W$), temporal order and resource constraints as accessibility relations ($R$), and variable selections as truth valuations ($V$).
+- **Typed & Dynamic Dimensions**: `Dimension!("name", Type)` and `TimeDimension!("slot", Slot)` structure relational candidate tuples.
+- **Composable Recipe Engine (`ConstraintRecipe`)**:
+  - `duration`: Assigns multi-slot temporal spans to activities, enforcing horizon boundaries.
+  - `within`: Enforces discrete availability windows ($TimeWindow$).
+  - `before`: Constructs binary temporal accessibility exclusion clauses ($\neg e \lor \neg l$).
+  - `nonOverlapping`: Enforces pairwise mutual exclusion over shared resources.
+  - `capacity`: Enforces maximum simultaneous occupancy limits ($k$) per resource/time slice via `atMost`.
+  - `prefer`: Assigns soft preference weights for optimization objectives.
+
+### 3. Transparent Explainability Engine (`reify.explain`)
+- **`explainPlan()` Trust Primitive**: Provides multi-layered diagnostic visibility into decision models:
+  - **`LogicalPlan`**: Pre-compilation relational space metrics, raw Cartesian sizes, filter selectivities, and semantic operations.
+  - **`PhysicalPlan`**: Structural classification, clause count, $\alpha$ density ($M/N$), phase transition markers, recommended solver backends, and estimated VRAM/credit costs.
+  - **`ExecutionTrace`**: Post-solve telemetry including engine used, hardware allocation, solve time, satisfaction rates, timeout flags, and billing charges.
+  - **`DecisionExplanation`**: Causality audit for specific variable assignments, linking choices directly to violated constraints, variable blame scores, and domain-level semantic policies.
+
+### 4. Dynamic Capability Discovery & Entitlements (`reify.navokoj.backend`, `reify.navokoj.client`)
+- Queries real-time entitlement parameters from backend API endpoints (`/v1/capabilities`).
+- Respects account constraints including `tier`, `engines`, `maxVariables`, `maxClauses`, `supportsSpaceTime`, `supportsHardClauseMask`, and `remainingCredits`.
+
+### 5. Lowering Pipeline & Multi-Format Ingestion (`reify.compiler`, `reify.dimacs`, `reify.opb`, `reify.document`)
+- **Tseitin Transformation**: Converts non-clause symbolic AST nodes into CNF in $O(N)$ time with auxiliary variables.
+- **OPB Serialization/Parsing**: Native support for Pseudo-Boolean linear constraints with BigInt coefficient normalization.
+- **DIMACS CNF/WCNF Handling**: Native parsing and generation with exact literal identity preservation.
+- **JSON Schema Validation**: Schema verification backed by [`schema/navokoj-model.schema.json`](schema/navokoj-model.schema.json).
+
+### 6. Automated Solver Backend & Hardware Router (`reify.router`)
+Selection is automatic and deterministic based on problem characteristics:
+
+| Structural Signature | Recommended Engine | Target Hardware | Description / Rationale |
+| :--- | :--- | :--- | :--- |
+| **Categorical + All-Diff** | `qstate` | Accelerated GPU | Direct N-ary state satisfaction on continuous manifolds |
+| **Massive CNF (> 5M clauses)** | `nitro` | CPU Native (SUTRA) | SUTRA C engine handling 100M+ clauses natively |
+| **Heavy WCNF / Soft Constraints** | `nitro` | High-Memory GPU | Continuous Riemannian MaxSAT manifold solvers |
+| **Hybrid XOR Parity Systems** | `hybrid` | Accelerated GPU | NitroSAT v3 with integrated Gaussian elimination |
+| **Standard Symbolic (< 100k clauses)**| `nitro` | CPU Native | Low-latency SUTRA CPU micro-kernel |
+
+---
+
+## Using Navokoj with Reify
+
+**Navokoj** is the reference decision substrate backend for **Reify**. The repository includes a public API key file for testing (`.public_api_key`).
+
+### 1. Setting Up Authentication
+
+Set the API key as an environment variable or pass it directly via CLI/SDK options:
+
+```bash
+# Load key from .public_api_key
+export NAVOKOJ_API_KEY=$(cat .public_api_key)
+
+# Or set manually with your API key
+export NAVOKOJ_API_KEY="sample_api_key"
+```
+
+### 2. Solving Models via Reify CLI
+
+```bash
+# 1. Analyze model topology & get engine routing recommendation
+build/reify analyze --input examples/crop-allocation.json
+
+# 2. Compile model into backend JSON request payload without spending credits
+build/reify compile --input examples/crop-allocation.json
+
+# 3. Solve model via Navokoj Engine (Nitro / Q-State / Hybrid) with local solution verification
+build/reify solve \
+  --input examples/crop-allocation.json \
+  --api-key $(cat .public_api_key) \
+  --engine nitro \
+  --timeout 10
+
+# 4. Perform physics-informed DEFEKT diagnostics (Chebyshev bias & Betti numbers)
+build/reify diagnose \
+  --input examples/crop-allocation.json \
+  --api-key $(cat .public_api_key)
+```
+
+### 3. Solving Models via D SDK
+
+```d
+import reify;
+import std.json : parseJSON;
+import std.stdio : writeln;
+
+void main() {
+    // Define decision model
+    auto app = decisionApp("nurse-scheduling", (Model model) {
+        auto nurseA = model.booleanVar("nurse_alpha");
+        auto nurseB = model.booleanVar("nurse_beta");
+        
+        // Hard constraint
+        model.require("at_least_one_on_shift", nurseA | nurseB);
+    });
+
+    // Configure Navokoj API request options
+    AppSolveOptions solveOptions;
+    solveOptions.request.apiKey = "sample_api_key"; // Or reads NAVOKOJ_API_KEY from environment
+    solveOptions.compilation.engine = "nitro";
+
+    // Solve, hydrate, and locally verify constraints
+    SolveResult result = app.solve(parseJSON("{}"), solveOptions);
+
+    writeln("Solve Status: ", result.status);
+    writeln("Feasible: ", result.verification.feasible);
+    
+    // Inspect transparent execution trace
+    ExecutionTrace trace = explainExecution(result);
+    writeln("Engine Used: ", trace.selectedEngine);
+    writeln("Solve Time (ms): ", trace.solveTimeMs);
+}
+```
+
+---
+
+## Directory Structure & Module Matrix
+
+| Path | Description |
+| :--- | :--- |
+| [`source/app.d`](source/app.d) | CLI application entry point (`reify` executable) |
+| [`source/reify/package.d`](source/reify/package.d) | Main SDK module re-exporting all public APIs |
+| [`source/reify/model.d`](source/reify/model.d) | Core symbolic decision model AST, decision variables, and expression pool |
+| [`source/reify/compiler.d`](source/reify/compiler.d) | Tseitin lowering, backend compilation, and model validation |
+| [`source/reify/spacetime.d`](source/reify/spacetime.d) | SpaceTime relational temporal dimension & scheduling framework |
+| [`source/reify/explain.d`](source/reify/explain.d) | Transparent plan explainability engine (`explainLogical`, `explainPhysical`, etc.) |
+| [`source/reify/router.d`](source/reify/router.d) | Automated solver backend & engine routing recommendation engine |
+| [`source/reify/diagnostics.d`](source/reify/diagnostics.d) | Structural analysis, $\alpha$ density, Chebyshev bias, and Betti numbers |
+| [`source/reify/formula.d`](source/reify/formula.d) | Low-level symbolic CNF/WCNF formula abstractions |
+| [`source/reify/dimacs.d`](source/reify/dimacs.d) | DIMACS CNF/WCNF format parser and generator |
+| [`source/reify/opb.d`](source/reify/opb.d) | Pseudo-Boolean (OPB) linear constraint parser, serializer, and BigInt normalizer |
+| [`source/reify/navokoj/`](source/reify/navokoj) | Reference `NavokojBackend`, HTTP API client, and response parsers |
+| [`source/reify/transport.d`](source/reify/transport.d) | `HttpTransport` interface and libcurl-backed `CurlTransport` |
+| [`schema/navokoj-model.schema.json`](schema/navokoj-model.schema.json) | Draft 2020-12 JSON Schema for universal decision model documents |
+| [`tests/`](tests/) | Test suite (4 test harnesses: core runner, formula mapping, SpaceTime, trust primitives) |
+| [`examples/`](examples/) | Example models (Nurse scheduling, crop allocation, surgery timetabling, Sudoku, graph coloring) |
 
 ---
 
@@ -30,35 +195,40 @@ Execution is vendor-neutral and extensible: `SolverBackend` owns solver executio
 Using **LDC2** (recommended):
 
 ```bash
-# Navigate to the compiler directory
-cd compiler
-
 # Build the reify executable
-ldc2 source/app.d source/reify/*.d -Isource -of=build/reify
+ldc2 -i -Isource source/app.d -of=build/reify
 ```
 
-Using **Dub**:
+Using **Dub** (if installed):
 
 ```bash
 dub build --config=cli
 ```
 
-### 2. Set Your API Key (Reference Backend)
-
-```bash
-export NAVOKOJ_API_KEY="nvkj_your_api_key_here"
-```
-
-### 3. Discover Account Entitlements
+### 2. Discover Account Entitlements
 
 Query authoritative account limits and engine access:
 
 ```bash
-# Using the Reify CLI
+# Set your API key
+export NAVOKOJ_API_KEY="nvkj_your_api_key_here"
+
+# Query capabilities using the Reify CLI
 build/reify capabilities
 ```
 
-### 4. Reify, Validate, & Solve a Model
+Output example:
+```text
+Tier: launch_pad
+Engines: ["nano", "mini", "nitro", "pro"]
+Max Variables: 1,000,000
+Max Clauses: 8,000,000
+Supports Hard Clause Mask: true
+Supports Space-Time: true
+Remaining Credits: $199.00
+```
+
+### 3. Reify, Validate, & Solve a Model
 
 Validate model document structure locally without consuming API credits:
 
@@ -82,52 +252,9 @@ build/reify solve \
 
 ---
 
-## API Capability Discovery
-
-Before compiling or submitting large models, client applications can dynamically query account-specific entitlements via the capability discovery layer. This ensures the compiler respects authoritative real-time account policy rather than static assumptions.
-
-### D SDK Capability API
-
-```d
-import reify;
-
-void main() {
-    auto backend = new NavokojBackend();
-    
-    // Discover account entitlements
-    RequestOptions options;
-    options.apiKey = "nvkj_your_api_key_here";
-    
-    Capabilities caps = backend.capabilities(options);
-    
-    import std.stdio : writeln;
-    writeln("Account Tier: ", caps.tier);
-    writeln("Allowed Engines: ", caps.engines);
-    writeln("Max Variables: ", caps.maxVariables);
-    writeln("Max Clauses: ", caps.maxClauses);
-    writeln("Remaining Credits ($): ", caps.remainingCredits);
-    writeln("Supports Space-Time: ", caps.supportsSpaceTime);
-}
-```
-
-### CLI Output Example
-
-```bash
-$ build/reify capabilities
-Tier: launch_pad
-Engines: ["nano", "mini", "nitro", "pro"]
-Max Variables: 1,000,000
-Max Clauses: 8,000,000
-Supports Hard Clause Mask: true
-Supports Space-Time: true
-Remaining Credits: $199.00
-```
-
----
-
 ## D Modeling API
 
-### 1. High-Level Declarative Model
+### 1. Declarative Decision Model
 
 ```d
 import reify;
@@ -164,7 +291,7 @@ int main(string[] args) {
 }
 ```
 
-### 2. SpaceTime Scheduling Policies
+### 2. SpaceTime Scheduling Policies & Explainability
 
 ```d
 import reify;
@@ -194,14 +321,15 @@ auto surgeryPolicy = exactlyOnePer!(PatientDim, ActivityDim)()
 spaceTime.apply(surgeryPolicy);
 spaceTime.before("preop", "surgery", "patient");
 
-// Inspect transparent execution and logical plans
+// Inspect transparent execution and physical plans
 auto logicalPlan  = spaceTime.explainPlan();
 auto physicalPlan = spaceTime.explainPhysical();
+
+logicalPlan.print();
+physicalPlan.print();
 ```
 
 ### 3. Low-Level CNF Formula Builder
-
-For formula generators and direct SAT encodings:
 
 ```d
 import reify;
@@ -220,7 +348,7 @@ auto compiled = formula.compile();
 
 ## Universal Model Document Format
 
-Models can be submitted directly as JSON documents:
+Models can be submitted directly as JSON documents conforming to [`schema/navokoj-model.schema.json`](schema/navokoj-model.schema.json):
 
 ```json
 {
@@ -256,45 +384,38 @@ Models can be submitted directly as JSON documents:
 }
 ```
 
-The complete document JSON schema is defined at [`schema/navokoj-model.schema.json`](schema/navokoj-model.schema.json).
-
 ---
 
-## Backend Selection & Routing
+## Testing & Verification Benchmarks
 
-Solver backend selection is automatic and deterministic based on problem characteristics:
+The full test suite consists of **4 distinct test harnesses** verified using **LDC2**:
 
-| Model Characteristics | Selected Engine / Backend | Description |
-|---|---|---|
-| Categorical + Equality/All-Different | **Q-State** | Direct N-ary state satisfaction on continuous manifolds |
-| Hard parity / XOR constraints | **Hybrid CNF+XOR** | Continuous relaxation paired with Gaussian parity elimination |
-| Weighted CNF / Pseudo-Boolean | **Nitro / Mini / Pro** | Continuous Riemannian MaxSAT manifold solvers |
-
----
-
-## Testing & Verification
-
-Run unit test suites:
-
-Using LDC2:
 ```bash
-make test
+# 1. Core compiler and hydration unit tests (277 assertions)
+ldc2 -i -Isource tests/test_runner.d -of=build/reify-tests && ./build/reify-tests
+
+# 2. Formula mapping & Tseitin transformation tests (44 assertions)
+ldc2 -i -Isource tests/formula_mapping_tests.d -of=build/formula-mapping-tests && ./build/formula-mapping-tests
+
+# 3. SpaceTime temporal scheduling recipe tests (34 assertions)
+ldc2 -i -Isource tests/spacetime_tests.d -of=build/spacetime-tests && ./build/spacetime-tests
+
+# 4. Trust primitive & plan explainability tests (68 assertions)
+ldc2 -i -Isource tests/trust_primitive_tests.d -of=build/trust-tests && ./build/trust-tests
 ```
 
-Using Dub:
-```bash
-dub run --config=test
-```
-
-The test runner covers:
-- Boolean/Tseitin compilation & Q-State hydration
-- Pseudo-Boolean arithmetic truth tables & indexed cardinality
-- OPB parser/serializer & BigInt normalization
-- Dynamic capability discovery deserialization
-- HTTP transport failure modes & partial solution verification
+**Total Test Coverage: 423 / 423 Assertions PASS**
 
 ---
 
 ## License
 
 The **Reify** D compiler project is distributed under the **Boost Software License 1.0** (`BSL-1.0`); see [`LICENSE`](LICENSE).
+
+---
+
+## Author & Ecosystem
+
+Authored by **[ShunyaBar Labs](https://shunyabar.foo/)**.
+
+**Reify** has built-in reference support for the **[Navokoj Decision Substrate](https://navokoj.shunyabar.foo/)**, enabling zero-configuration integration with high-performance continuous MaxSAT, Q-State, and SUTRA solver engines.
