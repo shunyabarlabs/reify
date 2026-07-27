@@ -63,7 +63,7 @@ check: build test
 	$(BUILD_DIR)/reify validate --format opb < examples/pigeonhole-3-2.opb
 	$(BUILD_DIR)/crop-app validate --input examples/crop-allocation.json
 	$(BUILD_DIR)/vehicle-routing-app validate --input examples/crop-allocation.json
-	$(BUILD_DIR)/nurse-wcnf-scheduling-app validate --input examples/crop-allocation.json
+	$(BUILD_DIR)/nurse-wcnf-scheduling-app validate --input examples/nurse-scheduling.json
 
 interop: build
 	command -v cnfgen

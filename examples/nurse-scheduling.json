@@ -1,0 +1,8 @@
+{
+  "hospital": "City Central Hospital",
+  "department": "Emergency Care",
+  "num_nurses": 15,
+  "num_days": 14,
+  "max_shifts_per_nurse": 9,
+  "weekend_penalty_weight": 5.0
+}
