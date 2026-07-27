@@ -17,6 +17,7 @@ and preferences, compile, solve, hydrate, and verify.
 | Hard SpaceTime benchmark | [`spacetime_exam_timetabling.d`](spacetime_exam_timetabling.d) | Exam × room × slot list-coloring with availability, conflicts, capacity, and soft preferences |
 | Data Center Placement | [`hard_benchmark_cnf.d`](hard_benchmark_cnf.d) | Categorical placement, channeling, AMK capacity, and WCNF preferences — 24 workloads across 8 servers in 4 fault domains |
 | Ramsey | [`ramsey.d`](ramsey.d) | Color every graph edge while forbidding monochromatic cliques |
+| Lifecycle walkthrough | [`dev_lifecycle_walkthrough.d`](dev_lifecycle_walkthrough.d) | Exercises every SDK stage (author → build → validate → compile → analyze → configure → solve → inspect → explain → present → diagnose) on a small graph coloring. Pairs with [`docs/DEVELOPER.md`](../docs/DEVELOPER.md). |
 
 Build the D examples together with the compiler sources:
 
