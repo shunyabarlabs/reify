@@ -6,5 +6,6 @@
 *.so
 *.lib
 *.exe
+.public_api_key
 # CocoIndex Code (ccc)
 /.cocoindex_code/
