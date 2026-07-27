@@ -346,6 +346,50 @@ auto compiled = formula.compile();
 
 ---
 
+## Reify: Technical Introduction
+
+Reify turns a declarative decision model into a solver artifact. You declare variables, constraints, and preferences once. The compiler lowers to CNF/WCNF/Hybrid CNF+XOR/Q-State/OPB, selects a backend via `router.d`, queries `/v1/capabilities` for tier limits, dispatches, hydrates assignments, and locally re-verifies all hard constraints before returning.
+
+The SDK is `import reify;`. Backend execution is pluggable via `SolverBackend` and `SolverResponseParser`. The reference backend is `NavokojBackend`.
+
+### Modeling in Practice
+
+The canonical reference is [`examples/hard_benchmark_cnf.d`](examples/hard_benchmark_cnf.d) — 155 LoC modeling 24-workload placement across 8 servers in 4 fault domains with anti-affinity, co-location, HA isolation, capacity ≤6/server, and revenue-weighted tier preferences.
+
+**High-level surface** — categorical placement with automatic ALO+AMO, channeled indicators only where clause-level is genuinely needed, and high-level relations that preserve intent for `explainPlan()`:
+
+```d
+CategoryExpr[24] place;
+foreach (i; 0.. N)
+    place[i] = model.categoricalVar(format("place[%s]", wk[i]), servers);
+
+// Hard constraints via relations (intent preserved in LogicalPlan)
+place[a].different(place[b])     // anti-affinity
+place[6].same(place[4])          // co-location
+implies(place[22].onRackD, place[21].onRackD)
+
+// Capacity AMK ≤6 — the one place clause-level is genuinely required
+foreach (s; 0..S) foreach (start; 0..N-6) {
+    BoolExpr[] window; foreach (j; start..start+7) window ~= ~on[j][s];
+    model.requireClause(format("cap[%s,w%d]", servers[s], start), window);
+}
+
+// Three tiers: require = hard, medium = penalty, prefer = weighted MaxSAT
+model.prefer("aff[w00,w01]", place[0].same(place[1]), 15.0);
+```
+
+### Compilation and Routing
+
+`reify.compile()` Tseitin-transforms non-clause AST nodes, order-encodes bounded ints, and routes via `router.d` based on topology — categorical+all-different → `qstate`, massive CNF → SUTRA C micro-kernel, heavy WCNF → Nitro Riemannian MaxSAT, hybrid XOR → hybrid with Gaussian elimination.
+
+The benchmark compiles to 192 booleans + channeling, 403 hard clauses, 25 weighted softs. Router selects `nitro` CPU Native (SUTRA) — `<100k` clauses, low-latency path. Reported solve time on this benchmark: 223 ms, 99.95% satisfaction after local re-verification.
+
+All hard constraints are re-verified locally against the original `Model` — solver output is not trusted. `ExecutionTrace` contains `selectedEngine`, `solveTimeMs`, billing, and routing decisions.
+
+See [`examples/hard_benchmark_cnf.d`](examples/hard_benchmark_cnf.d) for the full walkthrough.
+
+---
+
 ## Universal Model Document Format
 
 Models can be submitted directly as JSON documents conforming to [`schema/navokoj-model.schema.json`](schema/navokoj-model.schema.json):
