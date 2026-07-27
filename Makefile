@@ -10,10 +10,7 @@ REIFY_SOURCES := \
 	source/reify/opb.d \
 	source/reify/result.d \
 	source/reify/backend.d \
-	source/reify/transport.d \
-	source/reify/navokoj/client.d \
-	source/reify/navokoj/backend.d \
-	source/reify/navokoj/response_parser.d \
+	source/reify/client.d \
 	source/reify/diagnostics.d \
 	source/reify/router.d \
 	source/reify/app.d \
@@ -23,9 +20,13 @@ REIFY_SOURCES := \
 	source/reify/exports.d \
 	source/reify/explain.d
 
-.PHONY: all build test trust-test spacetime-test check interop clean
+.PHONY: all build test trust-test spacetime-test check interop studio clean
 
 all: build
+
+studio:
+	@echo "🚀 Launching Reify Compiler Studio on http://localhost:8080 ..."
+	python3 -m http.server 8080 --directory studio
 
 build:
 	mkdir -p $(BUILD_DIR)
@@ -53,6 +54,7 @@ spacetime-test:
 check: build test
 	$(LDC) examples/crop_app.d $(REIFY_SOURCES) -Isource -of=$(BUILD_DIR)/crop-app
 	$(LDC) examples/vehicle_routing.d $(REIFY_SOURCES) -Isource -of=$(BUILD_DIR)/vehicle-routing-app
+	$(LDC) examples/nurse_wcnf_scheduling.d $(REIFY_SOURCES) -Isource -of=$(BUILD_DIR)/nurse-wcnf-scheduling-app
 	$(BUILD_DIR)/reify validate --input examples/crop-allocation.json
 	$(BUILD_DIR)/reify compile --input examples/exam-allocation.json
 	$(BUILD_DIR)/reify compile --input examples/pigeonhole-3-2.cnf
@@ -61,6 +63,7 @@ check: build test
 	$(BUILD_DIR)/reify validate --format opb < examples/pigeonhole-3-2.opb
 	$(BUILD_DIR)/crop-app validate --input examples/crop-allocation.json
 	$(BUILD_DIR)/vehicle-routing-app validate --input examples/crop-allocation.json
+	$(BUILD_DIR)/nurse-wcnf-scheduling-app validate --input examples/crop-allocation.json
 
 interop: build
 	command -v cnfgen
