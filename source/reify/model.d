@@ -98,10 +98,52 @@ struct ExpressionNodePool {
 }
 
 private ExpressionNode unaryNode(Model owner, ExpressionKind kind, ExpressionNode child) {
-    auto node = owner.allocNode(kind);
-    node.children = [child];
-    node.owner = owner;
-    return node;
+    // Owner-attached: use the model's arena so the node tracks its model.
+    if (owner !is null) {
+        auto node = owner.allocNode(kind);
+        node.children = [child];
+        node.owner = owner;
+        return node;
+    }
+    // No explicit owner: adopt the child's owner if it has one, so mixed
+    // expressions like `logicalNot(modelVariable)` stay inside the model.
+    if (child.owner !is null) {
+        auto node = child.owner.allocNode(kind);
+        node.children = [child];
+        node.owner = child.owner;
+        return node;
+    }
+    // Pure unattached operands: try to constant-fold. Otherwise allocate a free
+    // node so the operator still returns a valid (owner-less) ExpressionNode.
+    ExpressionNode folded;
+    switch (kind) {
+        case ExpressionKind.logicalNot:
+            if (child.kind == ExpressionKind.booleanConstant) {
+                folded = new ExpressionNode(ExpressionKind.booleanConstant);
+                folded.booleanValue = !child.booleanValue;
+                return folded;
+            }
+            break;
+        case ExpressionKind.negate:
+            if (child.kind == ExpressionKind.integerConstant) {
+                folded = new ExpressionNode(ExpressionKind.integerConstant);
+                folded.integerValue = -child.integerValue;
+                return folded;
+            }
+            break;
+        case ExpressionKind.booleanAsInteger:
+            if (child.kind == ExpressionKind.booleanConstant) {
+                folded = new ExpressionNode(ExpressionKind.integerConstant);
+                folded.integerValue = child.booleanValue ? 1 : 0;
+                return folded;
+            }
+            break;
+        default:
+            break;
+    }
+    auto freeNode = new ExpressionNode(kind);
+    freeNode.children = [child];
+    return freeNode;
 }
 
 private ExpressionNode binaryNode(
@@ -120,30 +162,46 @@ private ExpressionNode binaryNode(
         );
     }
 
-    // Constant-fold when both children are unattached integer constants and the
-    // operation is a comparison. Without this, e.g. `equal(integer(0), integer(0))`
-    // would null-dereference inside allocNode because no model owns the result.
+    // Constant-fold unattached integer-on-integer operations: comparisons,
+    // arithmetic, and any future integer binary op. Without this,
+    // `equal(integer(0), integer(0))`, `integer(1) + integer(2)`, etc. would
+    // either null-dereference inside allocNode or surface a misleading
+    // "unattached expressions" error for fully-foldable inputs.
     if (owner is null &&
         left.kind == ExpressionKind.integerConstant &&
         right.kind == ExpressionKind.integerConstant) {
         const l = left.integerValue;
         const r = right.integerValue;
-        bool folded;
         switch (kind) {
-            case ExpressionKind.equal:         folded = (l == r); break;
-            case ExpressionKind.notEqual:      folded = (l != r); break;
-            case ExpressionKind.lessThan:      folded = (l <  r); break;
-            case ExpressionKind.lessEqual:     folded = (l <= r); break;
-            case ExpressionKind.greaterThan:   folded = (l >  r); break;
-            case ExpressionKind.greaterEqual:  folded = (l >= r); break;
-            default:
-                throw new ModelException(
-                    "Cannot fold unattached expression with non-comparison operator"
-                );
+            case ExpressionKind.equal:         return foldedBoolean(l == r);
+            case ExpressionKind.notEqual:      return foldedBoolean(l != r);
+            case ExpressionKind.lessThan:      return foldedBoolean(l <  r);
+            case ExpressionKind.lessEqual:     return foldedBoolean(l <= r);
+            case ExpressionKind.greaterThan:   return foldedBoolean(l >  r);
+            case ExpressionKind.greaterEqual:  return foldedBoolean(l >= r);
+            case ExpressionKind.add:           return foldedInteger(l + r);
+            case ExpressionKind.subtract:      return foldedInteger(l - r);
+            case ExpressionKind.multiply:      return foldedInteger(l * r);
+            default: break;
         }
-        auto foldedNode = new ExpressionNode(ExpressionKind.booleanConstant);
-        foldedNode.booleanValue = folded;
-        return foldedNode;
+    }
+
+    // Constant-fold unattached Boolean-on-Boolean operations: connectives,
+    // implication, and equivalence. Lets `boolean(true) & variable` keep its
+    // identity behavior while `boolean(true) & boolean(false)` collapses.
+    if (owner is null &&
+        left.kind == ExpressionKind.booleanConstant &&
+        right.kind == ExpressionKind.booleanConstant) {
+        const l = left.booleanValue;
+        const r = right.booleanValue;
+        switch (kind) {
+            case ExpressionKind.logicalAnd:    return foldedBoolean(l && r);
+            case ExpressionKind.logicalOr:     return foldedBoolean(l || r);
+            case ExpressionKind.logicalXor:    return foldedBoolean(l ^  r);
+            case ExpressionKind.implies:       return foldedBoolean(!l || r);
+            case ExpressionKind.equivalent:    return foldedBoolean(l == r);
+            default: break;
+        }
     }
 
     if (owner is null) {
@@ -151,13 +209,25 @@ private ExpressionNode binaryNode(
     }
     if (owner is null) {
         throw new ModelException(
-            "Cannot combine unattached expressions"
+            "Cannot combine unattached expressions with non-constant operands"
         );
     }
     auto node = owner.allocNode(kind);
     node.children = [left, right];
     node.owner = owner;
     return node;
+}
+
+private ExpressionNode foldedBoolean(bool value) {
+    auto n = new ExpressionNode(ExpressionKind.booleanConstant);
+    n.booleanValue = value;
+    return n;
+}
+
+private ExpressionNode foldedInteger(long value) {
+    auto n = new ExpressionNode(ExpressionKind.integerConstant);
+    n.integerValue = value;
+    return n;
 }
 
 struct BoolExpr {

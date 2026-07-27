@@ -10,6 +10,7 @@ import reify.document : documentApp;
 import reify.result : buildSolveResult, normalizeResponse;
 
 import std.algorithm : canFind;
+import std.conv : to;
 import std.datetime : Duration, dur;
 import std.file : readText;
 import std.json : JSONType, JSONValue, parseJSON;
@@ -616,6 +617,33 @@ private final class FakeTransport : HttpTransport {
         observedConnectTimeout = connectTimeout;
         observedOperationTimeout = operationTimeout;
         return next;
+    }
+}
+
+/// Sequence transport: returns the next queued response per call, recording
+/// each (url, body) pair so tests can assert call order and payloads.
+private final class SequenceTransport : HttpTransport {
+    HttpResponse[] queue;
+    string[] observedUrls;
+    string[] observedBodies;
+    size_t index = 0;
+
+    override HttpResponse postJson(
+        string url,
+        string bearerToken,
+        string body,
+        Duration connectTimeout,
+        Duration operationTimeout
+    ) {
+        observedUrls ~= url;
+        observedBodies ~= body;
+        if (index >= queue.length) {
+            throw new Exception(
+                "SequenceTransport exhausted at call " ~
+                    (cast(long) index).to!string
+            );
+        }
+        return queue[index++];
     }
 }
 
@@ -1603,6 +1631,228 @@ private void testArithmeticOverflowDiagnostics() {
     check(caught, "Overflowing objective is rejected");
 }
 
+private void testConstantFolding() {
+    // Every subtest below would either crash with SIGSEGV inside
+    // reify.model.unaryNode/binaryNode or surface a misleading "Cannot combine
+    // unattached expressions" error before the constant-folding fix. After the
+    // fix, constant-only AST operators must lower to folded constants without
+    // requiring a model attachment, and the JSON reproducer must compile
+    // instead of exiting with SIGSEGV.
+
+    long[string] noDecisions;
+
+    {
+        auto model = new Model("not-true");
+        model.require("trivial", logicalNot(boolean(true)));
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "logicalNot(boolean(true)) compiles to an unsatisfiable CNF"
+        );
+    }
+    {
+        auto model = new Model("not-false");
+        model.require("trivial", logicalNot(boolean(false)));
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "logicalNot(boolean(false)) compiles to a satisfiable CNF"
+        );
+    }
+    {
+        auto model = new Model("tilde-not-true");
+        model.require("tilde", ~boolean(true));
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "~boolean(true) materializes and compiles unsat"
+        );
+    }
+
+    {
+        auto model = new Model("arith-five-plus-three");
+        model.require(
+            "five-plus-three-equals-eight",
+            equal(integer(5) + integer(3), integer(8))
+        );
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "constant 5 + 3 = 8 compiles sat"
+        );
+    }
+    {
+        auto model = new Model("arith-five-plus-three-mismatch");
+        model.require(
+            "five-plus-three-equals-seven",
+            equal(integer(5) + integer(3), integer(7))
+        );
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "constant 5 + 3 != 7 compiles unsat"
+        );
+    }
+    {
+        auto model = new Model("arith-sub-mul");
+        model.require(
+            "ten-minus-four-equals-six",
+            equal(integer(10) - integer(4), integer(6))
+        );
+        model.require(
+            "six-times-seven-equals-forty-two",
+            equal(integer(6) * 7, integer(42))
+        );
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "constant integer subtraction and multiplication fold"
+        );
+    }
+    {
+        auto model = new Model("arith-neg-five");
+        model.require(
+            "neg-five-equals-neg-five",
+            equal(-integer(5), integer(-5))
+        );
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "unary -integer(5) folds and compares equal"
+        );
+    }
+
+    {
+        auto model = new Model("cast-bool-true");
+        model.minimize("value", asInteger(boolean(true)));
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "asInteger(boolean(true)) lowers into a finite objective"
+        );
+    }
+
+    {
+        auto model = new Model("bool-and-false");
+        model.require("and", boolean(true) & boolean(false));
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "boolean(true) & boolean(false) compiles unsat"
+        );
+    }
+    {
+        auto model = new Model("bool-or-true");
+        model.require("or", boolean(false) | boolean(true));
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "boolean(false) | boolean(true) compiles sat"
+        );
+    }
+    {
+        auto model = new Model("bool-xor-cancels");
+        model.require("xor", boolean(true) ^ boolean(true));
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "boolean(true) ^ boolean(true) compiles unsat"
+        );
+    }
+    {
+        auto model = new Model("bool-implies");
+        model.require("implies", implies(boolean(true), boolean(false)));
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "implies(boolean(true), boolean(false)) compiles unsat"
+        );
+    }
+    {
+        auto model = new Model("bool-equivalent");
+        model.require(
+            "equivalent",
+            equivalent(boolean(true), boolean(false))
+        );
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "equivalent(boolean(true), boolean(false)) compiles unsat"
+        );
+    }
+
+    {
+        auto model = new Model("int-comparisons");
+        model.require(
+            "seven-equals-seven",
+            equal(integer(7), integer(7))
+        );
+        model.require(
+            "three-less-than-nine",
+            lessThan(integer(3), integer(9))
+        );
+        model.require(
+            "nine-less-equal-nine",
+            lessEqual(integer(9), integer(9))
+        );
+        model.require(
+            "nine-greater-than-three",
+            greaterThan(integer(9), integer(3))
+        );
+        model.require(
+            "nine-greater-equal-nine",
+            greaterEqual(integer(9), integer(9))
+        );
+        auto compiled = compile(model);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "constant integer comparisons fold to true and compile sat"
+        );
+    }
+    {
+        auto model = new Model("int-comparisons-disagree");
+        model.require(
+            "seven-not-equal-seven",
+            notEqual(integer(7), integer(7))
+        );
+        auto compiled = compile(model);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "notEqual(integer(7), integer(7)) compiles unsat"
+        );
+    }
+
+    // The JSON reproducer from the bug report: a schema-valid document whose
+    // only constraint is `{"op":"not","arg":true}` previously exited with
+    // SIGSEGV. After the fix it must compile to an unsatisfiable CNF.
+    {
+        auto app = documentApp();
+        auto doc = parseJSON(
+            `{"name":"json-constants","variables":[],` ~
+            `"constraints":[{"name":"not-true",` ~
+            `"expression":{"op":"not","arg":true}}]}`
+        );
+        auto compiled = app.compile(doc);
+        check(
+            !cnfSatisfiable(compiled, noDecisions),
+            "JSON {\"op\":\"not\",\"arg\":true} compiles unsat instead of crashing"
+        );
+    }
+    {
+        auto app = documentApp();
+        auto doc = parseJSON(
+            `{"name":"json-constants-ok","variables":[],` ~
+            `"constraints":[{"name":"not-false",` ~
+            `"expression":{"op":"not","arg":false}}]}`
+        );
+        auto compiled = app.compile(doc);
+        check(
+            cnfSatisfiable(compiled, noDecisions),
+            "JSON {\"op\":\"not\",\"arg\":false} compiles sat"
+        );
+    }
+}
+
 private void testCrossModelSafety() {
     auto first = new Model("first");
     auto second = new Model("second");
@@ -1804,6 +2054,160 @@ private void testTopologyDiagnosticsAndAutoRouting() {
     check(xorRoute.engine == "hybrid", "Auto-router selected hybrid engine");
 }
 
+private void testRecommendRouteWithCapabilities() {
+    // Empty caps envelope: topology-driven selection is preserved unchanged.
+    auto tinyModel = new Model("tiny");
+    tinyModel.booleanVar("x");
+    auto tinyTopology = analyzeModel(tinyModel);
+    auto noCaps = recommendRoute(tinyTopology);
+    check(
+        !noCaps.isRefusal(),
+        "Empty capabilities do not produce a refusal"
+    );
+
+    // Tight maxVariables: build a model with more logical variables than the
+    // cap allows so the router must refuse rather than attempt submission.
+    auto bigModel = new Model("big");
+    foreach (i; 0 .. 10) {
+        bigModel.booleanVar("v" ~ i.to!string);
+    }
+    auto bigTopology = analyzeModel(bigModel);
+    Capabilities tight;
+    tight.maxVariables = 5;
+    auto tightRec = recommendRoute(bigTopology, CompileOptions(), tight);
+    check(
+        tightRec.isRefusal(),
+        "Tight caps force a router refusal"
+    );
+    check(
+        tightRec.rationale.canFind("exceeds account limits"),
+        "Refusal rationale explains the limit violation"
+    );
+
+    // Caps that fit the model but exclude the GPU the topology would pick:
+    // CPU-only account should downgrade a GPU selection.
+    auto xorModel = new Model("xor-caps");
+    auto xorX = xorModel.booleanVar("x");
+    auto xorY = xorModel.booleanVar("y");
+    xorModel.requireParity("p", [xorX, xorY], 1);
+    auto xorTopology = analyzeModel(xorModel);
+    Capabilities cpuOnly;
+    cpuOnly.hardwareAccess = ["cpu_native"];
+    auto xorRoute = recommendRoute(xorTopology, CompileOptions(), cpuOnly);
+    check(
+        xorRoute.hardware == "cpu_native",
+        "CPU-only caps downgrade hybrid_xor topology to CPU"
+    );
+    check(
+        xorRoute.targetEndpoint == "/v1/solve",
+        "Downgraded endpoint falls back to /v1/solve"
+    );
+}
+
+private void testSolveAutoRouting() {
+    // Compile a tiny document, stub capabilities then a successful solve,
+    // and verify solveAuto wires the call order and applies the routing
+    // recommendation to the outgoing request.
+    auto app = documentApp();
+    auto doc = parseJSON(
+        `{"name":"auto-route","variables":[{"name":"v","type":"boolean"}],` ~
+        `"constraints":[{"name":"trivial","expression":{"var":"v"}}]}`
+    );
+
+    auto fake = new SequenceTransport();
+    fake.queue ~= HttpResponse(
+        200,
+        `{"engines":["nitro","hybrid"],"maxVariables":1000,` ~
+        `"maxClauses":10000,"supportsHardClauseMask":true,` ~
+        `"supportsSpaceTime":true,"tier":"standard",` ~
+        `"hardwareAccess":["cpu_native","gpu_l4"]}`,
+        null
+    );
+    long[string] values;
+    values["v"] = 1;
+    auto solveStub = documentApp().compile(doc);
+    fake.queue ~= HttpResponse(
+        200,
+        cnfResponseFor(solveStub, values).toString(),
+        null
+    );
+
+    AppSolveOptions options;
+    options.compilation.engine = "auto";
+    options.request.apiKey = "secret";
+    options.request.baseUrl = "https://example.invalid/";
+    auto result = app.solveAuto(doc, options, fake);
+
+    check(fake.observedUrls.length == 2, "solveAuto issued two requests");
+    check(
+        fake.observedUrls[0].canFind("/v1/capabilities"),
+        "First request hits /v1/capabilities"
+    );
+    check(
+        fake.observedUrls[1].canFind("/v1/solve"),
+        "Second request hits /v1/solve"
+    );
+    check(result.feasible, "solveAuto returned a hydrated feasible result");
+
+    // The router, after caps reconciliation, picked "nitro" + cpu_native.
+    // The payload sent to /v1/solve should carry those overrides.
+    auto sentPayload = parseJSON(fake.observedBodies[1]);
+    check(
+        sentPayload.object["engine"].str == "nitro",
+        "Router-selected engine reached the wire request"
+    );
+    check(
+        sentPayload.object["hardware"].str == "cpu_native",
+        "Router-selected hardware reached the wire request"
+    );
+}
+
+private void testCapabilitiesCliCommand() {
+    // Without a transport, the new capabilities() method must surface the
+    // capabilities envelope as JSON with the documented fields.
+    auto app = documentApp();
+
+    auto fake = new FakeTransport();
+    fake.next = HttpResponse(
+        200,
+        `{"engines":["nitro","qstate"],"maxVariables":500,` ~
+        `"maxClauses":5000,"supportsHardClauseMask":true,` ~
+        `"supportsSpaceTime":false,"tier":"free",` ~
+        `"hardwareAccess":["cpu_native"],"remainingCredits":12.5}`,
+        null
+    );
+
+    AppSolveOptions options;
+    options.request.apiKey = "secret";
+    options.request.baseUrl = "https://example.invalid/";
+    auto caps = app.capabilities(options, fake);
+
+    check(
+        fake.observedUrl.canFind("/v1/capabilities"),
+        "capabilities() probed /v1/capabilities"
+    );
+    check(
+        caps.object["tier"].str == "free",
+        "Capabilities JSON carries the tier"
+    );
+    check(
+        caps.object["engines"].array.length == 2,
+        "Capabilities JSON lists available engines"
+    );
+    check(
+        caps.object["max_variables"].integer == 500,
+        "Capabilities JSON carries the variable limit"
+    );
+    check(
+        caps.object["has_account_limits"].type == JSONType.true_,
+        "has_account_limits flag set when envelope has limits"
+    );
+    check(
+        caps.object["supports_space_time"].type == JSONType.false_,
+        "Capabilities JSON preserves false boolean fields"
+    );
+}
+
 int main() {
     testBooleanCompilation();
     testQStateCompilationAndHydration();
@@ -1830,6 +2234,7 @@ int main() {
     testDocumentExamples();
     testCompilationLimit();
     testArithmeticOverflowDiagnostics();
+    testConstantFolding();
     testCrossModelSafety();
     testCompiledModelSnapshotSafety();
     testHardWeightDominance();
@@ -1838,6 +2243,9 @@ int main() {
     testObjectiveRangeValidation();
     testHybridParityVerification();
     testTopologyDiagnosticsAndAutoRouting();
+    testRecommendRouteWithCapabilities();
+    testSolveAutoRouting();
+    testCapabilitiesCliCommand();
 
     writeln("navokoj-app tests passed: ", assertions, " assertions");
     return 0;
