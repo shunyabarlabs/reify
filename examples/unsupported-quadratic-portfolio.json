@@ -1,0 +1,41 @@
+{
+  "name": "quadratic-portfolio-requires-future-backend",
+  "variables": [
+    {
+      "name": "weight[equity]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 100
+    },
+    {
+      "name": "weight[bonds]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 100
+    }
+  ],
+  "constraints": [
+    {
+      "name": "fully invested",
+      "expression": {
+        "op": "eq",
+        "left": {
+          "op": "sum",
+          "args": ["weight[equity]", "weight[bonds]"]
+        },
+        "right": 100
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "name": "variance term",
+      "sense": "minimize",
+      "expression": {
+        "op": "mul",
+        "left": "weight[equity]",
+        "right": "weight[bonds]"
+      }
+    }
+  ]
+}

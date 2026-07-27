@@ -1,0 +1,74 @@
+{
+  "name": "portfolio-allocation",
+  "variables": [
+    {
+      "name": "allocation_pct[equity]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 100
+    },
+    {
+      "name": "allocation_pct[bonds]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 100
+    },
+    {
+      "name": "allocation_pct[cash]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 100
+    }
+  ],
+  "constraints": [
+    {
+      "name": "fully invested",
+      "expression": {
+        "op": "eq",
+        "left": {
+          "op": "sum",
+          "args": [
+            "allocation_pct[equity]",
+            "allocation_pct[bonds]",
+            "allocation_pct[cash]"
+          ]
+        },
+        "right": 100
+      }
+    },
+    {
+      "name": "equity concentration",
+      "expression": {
+        "op": "le",
+        "left": "allocation_pct[equity]",
+        "right": 70
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "name": "expected return",
+      "sense": "maximize",
+      "expression": {
+        "op": "sum",
+        "args": [
+          {
+            "op": "mul",
+            "left": 12,
+            "right": "allocation_pct[equity]"
+          },
+          {
+            "op": "mul",
+            "left": 5,
+            "right": "allocation_pct[bonds]"
+          },
+          {
+            "op": "mul",
+            "left": 1,
+            "right": "allocation_pct[cash]"
+          }
+        ]
+      }
+    }
+  ]
+}

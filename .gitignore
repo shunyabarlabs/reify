@@ -1,0 +1,10 @@
+/build/
+/.dub/
+/.dub.selections.json
+*.o
+*.a
+*.so
+*.lib
+*.exe
+# CocoIndex Code (ccc)
+/.cocoindex_code/

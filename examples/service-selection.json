@@ -1,0 +1,32 @@
+{
+  "name": "service-selection",
+  "variables": [
+    {"name": "gateway", "type": "boolean"},
+    {"name": "primary_db", "type": "boolean"},
+    {"name": "replica_db", "type": "boolean"},
+    {"name": "cache", "type": "boolean"}
+  ],
+  "constraints": [
+    {
+      "name": "gateway needs a database",
+      "expression": {
+        "op": "implies",
+        "left": "gateway",
+        "right": {
+          "op": "or",
+          "args": ["primary_db", "replica_db"]
+        }
+      }
+    },
+    {
+      "name": "primary database prefers cache",
+      "level": "soft",
+      "weight": 4,
+      "expression": {
+        "op": "implies",
+        "left": "primary_db",
+        "right": "cache"
+      }
+    }
+  ]
+}

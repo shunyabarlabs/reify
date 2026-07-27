@@ -1,0 +1,41 @@
+{
+  "name": "exam-allocation",
+  "variables": [
+    {
+      "name": "slot[compiler-design]",
+      "type": "categorical",
+      "states": ["morning", "afternoon", "evening"]
+    },
+    {
+      "name": "slot[distributed-systems]",
+      "type": "categorical",
+      "states": ["morning", "afternoon", "evening"]
+    },
+    {
+      "name": "slot[databases]",
+      "type": "categorical",
+      "states": ["morning", "afternoon", "evening"]
+    }
+  ],
+  "constraints": [
+    {
+      "name": "shared students",
+      "expression": {
+        "op": "different",
+        "left": "slot[compiler-design]",
+        "right": "slot[distributed-systems]"
+      }
+    },
+    {
+      "name": "all exams have distinct slots",
+      "expression": {
+        "op": "all_different",
+        "args": [
+          "slot[compiler-design]",
+          "slot[distributed-systems]",
+          "slot[databases]"
+        ]
+      }
+    }
+  ]
+}

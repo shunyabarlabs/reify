@@ -1,0 +1,41 @@
+{
+  "name": "reify",
+  "description": "A domain-neutral declarative D SDK and decision compiler. Reifies symbolic decision spaces into backend solver artifacts.",
+  "copyright": "Copyright © 2026 ShunyaBar Labs",
+  "license": "BSL-1.0",
+  "targetType": "library",
+  "sourcePaths": ["source"],
+  "importPaths": ["source"],
+  "configurations": [
+    {
+      "name": "library",
+      "targetType": "library",
+      "excludedSourceFiles": ["source/app.d"]
+    },
+    {
+      "name": "cli",
+      "targetType": "executable",
+      "mainSourceFile": "source/app.d",
+      "targetName": "reify"
+    },
+    {
+      "name": "test",
+      "targetType": "executable",
+      "sourcePaths": ["source", "tests"],
+      "mainSourceFile": "tests/test_runner.d",
+      "excludedSourceFiles": [
+        "source/app.d",
+        "tests/formula_mapping_tests.d"
+      ],
+      "targetName": "reify-tests"
+    },
+    {
+      "name": "formula-test",
+      "targetType": "executable",
+      "sourcePaths": ["source", "tests"],
+      "mainSourceFile": "tests/formula_mapping_tests.d",
+      "excludedSourceFiles": ["source/app.d", "tests/test_runner.d"],
+      "targetName": "reify-formula-tests"
+    }
+  ]
+}

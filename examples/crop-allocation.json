@@ -1,0 +1,74 @@
+{
+  "name": "crop-allocation",
+  "variables": [
+    {
+      "name": "acres[north,wheat]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 4
+    },
+    {
+      "name": "acres[north,chickpea]",
+      "type": "integer",
+      "lower": 0,
+      "upper": 4
+    }
+  ],
+  "constraints": [
+    {
+      "name": "north field capacity",
+      "level": "hard",
+      "expression": {
+        "op": "le",
+        "left": {
+          "op": "sum",
+          "args": [
+            "acres[north,wheat]",
+            "acres[north,chickpea]"
+          ]
+        },
+        "right": 4
+      }
+    },
+    {
+      "name": "minimum chickpea contract",
+      "level": "hard",
+      "expression": {
+        "op": "ge",
+        "left": "acres[north,chickpea]",
+        "right": 1
+      }
+    },
+    {
+      "name": "rotation preference",
+      "level": "soft",
+      "weight": 2,
+      "expression": {
+        "op": "ge",
+        "left": "acres[north,chickpea]",
+        "right": 2
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "name": "expected profit",
+      "sense": "maximize",
+      "expression": {
+        "op": "sum",
+        "args": [
+          {
+            "op": "mul",
+            "left": 30,
+            "right": "acres[north,wheat]"
+          },
+          {
+            "op": "mul",
+            "left": 22,
+            "right": "acres[north,chickpea]"
+          }
+        ]
+      }
+    }
+  ]
+}

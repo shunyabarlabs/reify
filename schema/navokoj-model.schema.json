@@ -1,0 +1,522 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://navokoj.shunyabar.foo/schemas/navokoj-model.schema.json",
+  "title": "navokoj-app universal decision model",
+  "type": "object",
+  "anyOf": [
+    {"required": ["variables"]},
+    {"required": ["cnf"]},
+    {"required": ["opb"]}
+  ],
+  "allOf": [
+    {
+      "if": {"required": ["opb"]},
+      "then": {
+        "not": {
+          "anyOf": [
+            {"required": ["variables"]},
+            {"required": ["cnf"]},
+            {"required": ["constraints"]},
+            {"required": ["objectives"]},
+            {"required": ["parity_constraints"]}
+          ]
+        }
+      }
+    }
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "variables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/variable"
+      }
+    },
+    "cnf": {
+      "$ref": "#/$defs/cnf"
+    },
+    "opb": {
+      "$ref": "#/$defs/opb"
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/constraint"
+      }
+    },
+    "objectives": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/objective"
+      }
+    },
+    "parity_constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/parity"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "cnf": {
+      "type": "object",
+      "required": ["num_vars", "clauses"],
+      "properties": {
+        "num_vars": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "clauses": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": -2147483647,
+              "maximum": 2147483647,
+              "not": {"const": 0}
+            }
+          }
+        },
+        "variable_labels": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "comments": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      },
+      "additionalProperties": false
+    },
+    "opb": {
+      "type": "object",
+      "required": ["num_vars", "constraints"],
+      "properties": {
+        "num_vars": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "header": {
+          "$ref": "#/$defs/opbHeader"
+        },
+        "comments": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "objective": {
+          "$ref": "#/$defs/opbObjective"
+        },
+        "constraints": {
+          "type": "array",
+          "maxItems": 5000000,
+          "items": {
+            "$ref": "#/$defs/opbConstraint"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "opbHeader": {
+      "type": "object",
+      "required": ["num_variables", "num_constraints"],
+      "properties": {
+        "num_variables": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "num_constraints": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000000
+        },
+        "num_equal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000000
+        },
+        "intsize": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "opbObjective": {
+      "type": "object",
+      "required": ["sense", "terms"],
+      "properties": {
+        "sense": {
+          "enum": ["min", "max"]
+        },
+        "terms": {
+          "$ref": "#/$defs/opbTerms"
+        }
+      },
+      "additionalProperties": false
+    },
+    "opbConstraint": {
+      "type": "object",
+      "required": ["terms", "relation", "rhs"],
+      "properties": {
+        "terms": {
+          "$ref": "#/$defs/opbTerms"
+        },
+        "relation": {
+          "enum": [
+            "<",
+            "<=",
+            "≤",
+            "=",
+            "==",
+            "!=",
+            "≠",
+            ">=",
+            "≥",
+            ">"
+          ]
+        },
+        "rhs": {
+          "$ref": "#/$defs/opbIntegerString"
+        }
+      },
+      "additionalProperties": false
+    },
+    "opbTerms": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1000000,
+      "items": {
+        "$ref": "#/$defs/opbTerm"
+      }
+    },
+    "opbTerm": {
+      "type": "object",
+      "required": ["coefficient", "literal"],
+      "properties": {
+        "coefficient": {
+          "$ref": "#/$defs/opbIntegerString"
+        },
+        "literal": {
+          "type": "integer",
+          "minimum": -4294967295,
+          "maximum": 4294967295,
+          "not": {"const": 0}
+        }
+      },
+      "additionalProperties": false
+    },
+    "opbIntegerString": {
+      "type": "string",
+      "pattern": "^[+-]?[0-9]+$"
+    },
+    "variable": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["name", "type"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "type": {"enum": ["boolean", "bool"]}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "type", "lower", "upper"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "type": {"enum": ["integer", "int"]},
+            "lower": {"$ref": "#/$defs/signedInteger"},
+            "upper": {"$ref": "#/$defs/signedInteger"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "type", "states"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "type": {"enum": ["categorical", "category"]},
+            "states": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "constraint": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["name", "expression"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "level": {"enum": ["hard", "required"]},
+            "expression": {"$ref": "#/$defs/boolExpression"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["name", "level", "expression"],
+          "properties": {
+            "name": {"type": "string", "minLength": 1},
+            "level": {"enum": ["medium", "soft", "preferred"]},
+            "weight": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "expression": {"$ref": "#/$defs/boolExpression"}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "objective": {
+      "type": "object",
+      "required": ["name", "expression"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "sense": {"enum": ["maximize", "max", "minimize", "min"]},
+        "priority": {"type": "integer", "minimum": 0, "maximum": 1024},
+        "expression": {
+          "$ref": "#/$defs/intExpression"
+        }
+      },
+      "additionalProperties": false
+    },
+    "parity": {
+      "type": "object",
+      "required": ["name", "variables", "target"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "variables": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "target": {"enum": [0, 1]}
+      },
+      "additionalProperties": false
+    },
+    "boolExpression": {
+      "oneOf": [
+        {"type": "boolean"},
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "required": ["var"],
+          "properties": {
+            "var": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "arg"],
+          "properties": {
+            "op": {"const": "not"},
+            "arg": {"$ref": "#/$defs/boolExpression"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "args"],
+          "properties": {
+            "op": {"enum": ["and", "or", "xor"]},
+            "args": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/boolExpression"}
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {"enum": ["implies", "iff", "equivalent"]},
+            "left": {"$ref": "#/$defs/boolExpression"},
+            "right": {"$ref": "#/$defs/boolExpression"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "ne",
+                "neq",
+                "lt",
+                "le",
+                "lte",
+                "gt",
+                "ge",
+                "gte"
+              ]
+            },
+            "left": {"$ref": "#/$defs/intExpression"},
+            "right": {"$ref": "#/$defs/intExpression"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "var", "state"],
+          "properties": {
+            "op": {"enum": ["is", "is_not"]},
+            "var": {"type": "string", "minLength": 1},
+            "state": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {"enum": ["same", "different"]},
+            "left": {"type": "string", "minLength": 1},
+            "right": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "args"],
+          "properties": {
+            "op": {"const": "all_different"},
+            "args": {
+              "type": "array",
+              "minItems": 2,
+              "items": {"type": "string", "minLength": 1}
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "args", "count"],
+          "properties": {
+            "op": {"enum": ["at_most", "at_least", "exactly"]},
+            "args": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/boolExpression"}
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "intExpression": {
+      "oneOf": [
+        {"$ref": "#/$defs/signedInteger"},
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "required": ["var"],
+          "properties": {
+            "var": {"type": "string", "minLength": 1}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["value"],
+          "properties": {
+            "value": {"$ref": "#/$defs/signedInteger"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "args"],
+          "properties": {
+            "op": {"enum": ["add", "sum"]},
+            "args": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/intExpression"}
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {"const": "sub"},
+            "left": {"$ref": "#/$defs/intExpression"},
+            "right": {"$ref": "#/$defs/intExpression"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "arg"],
+          "properties": {
+            "op": {"const": "neg"},
+            "arg": {"$ref": "#/$defs/intExpression"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["op", "left", "right"],
+          "properties": {
+            "op": {"const": "mul"},
+            "left": {"$ref": "#/$defs/intExpression"},
+            "right": {"$ref": "#/$defs/intExpression"}
+          },
+          "anyOf": [
+            {
+              "properties": {
+                "left": {"$ref": "#/$defs/signedInteger"}
+              }
+            },
+            {
+              "properties": {
+                "right": {"$ref": "#/$defs/signedInteger"}
+              }
+            }
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "signedInteger": {
+      "type": "integer",
+      "minimum": -9223372036854775808,
+      "maximum": 9223372036854775807
+    }
+  }
+}
