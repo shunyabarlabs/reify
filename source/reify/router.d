@@ -5,13 +5,18 @@ module reify.router;
 
 import reify.diagnostics;
 import reify.compiler;
+import reify.backend : Capabilities;
 
 import std.algorithm : max, min;
 import std.format : format;
 import std.json : JSONValue;
+import std.string : startsWith;
 
 /**
  * Recommended Navokoj backend execution route and hardware pre-flight estimate.
+ *
+ * When `refused` is true, callers (notably `NavokojApp.solveAuto`) must not
+ * transmit a request — use the `rationale` field to surface why.
  */
 struct RoutingRecommendation {
     string engine;                // "qstate", "nitro", "sutra", "hybrid"
@@ -22,6 +27,17 @@ struct RoutingRecommendation {
     double estimatedCreditCost;
     string rationale;
 
+    /// Set by `applyAccountLimits` when the model exceeds the account envelope.
+    /// Distinguishes "router refused" from "no recommendation supplied" (the
+    /// default state where engine/endpoint are empty strings but the request
+    /// is still valid).
+    bool refused = false;
+
+    /// True when the recommendation must not be transmitted (limit violation).
+    bool isRefusal() const {
+        return refused;
+    }
+
     JSONValue toJson() const {
         JSONValue[string] val;
         val["engine"] = JSONValue(engine);
@@ -31,14 +47,39 @@ struct RoutingRecommendation {
         val["estimated_vram_mb"] = JSONValue(estimatedVramMb);
         val["estimated_credit_cost"] = JSONValue(estimatedCreditCost);
         val["rationale"] = JSONValue(rationale);
+        val["is_refusal"] = JSONValue(isRefusal());
         return JSONValue(val);
     }
 }
 
 /**
- * Recommends optimal solver routing and capacity estimates based on topology analysis.
+ * Recommends optimal solver routing and capacity estimates based on topology
+ * analysis and (optionally) the live account capability envelope.
+ *
+ * Backwards compatible: callers that omit `caps` get the same topology-driven
+ * selection as before — `caps` is checked only when `hasAccountLimits()` is
+ * true. This preserves all existing test fixtures.
  */
-RoutingRecommendation recommendRoute(const ref TopologyAnalysis topology, CompileOptions options = CompileOptions()) {
+RoutingRecommendation recommendRoute(
+    const ref TopologyAnalysis topology,
+    CompileOptions options = CompileOptions(),
+    Capabilities caps = Capabilities()
+) {
+    auto rec = recommendRouteByTopology(topology, options);
+    if (caps.hasAccountLimits()) {
+        applyAccountLimits(rec, topology, caps);
+    }
+    return rec;
+}
+
+/**
+ * Topology-driven selection without account-limit reconciliation. Exposed for
+ * tests that want to exercise the pure topology branches in isolation.
+ */
+RoutingRecommendation recommendRouteByTopology(
+    const ref TopologyAnalysis topology,
+    CompileOptions options = CompileOptions()
+) {
     RoutingRecommendation rec;
 
     // 1. Q-State Categorical Routing
@@ -105,4 +146,63 @@ RoutingRecommendation recommendRoute(const ref TopologyAnalysis topology, Compil
     rec.estimatedCreditCost = 0.5;
     rec.rationale = "Small-to-medium symbolic instance. Routing to low-latency SUTRA CPU micro-kernel (abstracted as 'nitro').";
     return rec;
+}
+
+/**
+ * Reconcile a topology-derived recommendation against the live account
+ * capability envelope. Mutates `rec` in place:
+ *   - Refuses the request when the model is bigger than the account can host.
+ *   - Downgrades GPU selections to CPU when the account lacks GPU access.
+ *
+ * An empty `hardwareAccess` list is treated as "unknown" and lets the
+ * topology choice stand — better to attempt and surface a server-side error
+ * than to silently downgrade an instance the user explicitly asked for.
+ */
+private void applyAccountLimits(
+    ref RoutingRecommendation rec,
+    const ref TopologyAnalysis topology,
+    const ref Capabilities caps
+) {
+    const sizeLimit = caps.maxVariables > 0
+        ? cast(size_t) caps.maxVariables
+        : size_t.max;
+    const clauseLimit = caps.maxClauses > 0
+        ? cast(size_t) caps.maxClauses
+        : size_t.max;
+    const vars = max(topology.encodedVariables, topology.logicalVariables);
+
+    // Hard refusal: instance exceeds the account envelope entirely.
+    if (vars > sizeLimit || topology.clauseCount > clauseLimit) {
+        rec.refused = true;
+        rec.estimatedSolveTimeMs = 0.0;
+        rec.estimatedVramMb = 0.0;
+        rec.estimatedCreditCost = 0.0;
+        rec.rationale = format(
+            "Refusing: model exceeds account limits (vars=%s > max=%s, clauses=%s > max=%s).",
+            vars, sizeLimit, topology.clauseCount, clauseLimit
+        );
+        return;
+    }
+
+    // Soft downgrade: GPU selection but account lacks GPU access.
+    if (rec.hardware != "cpu_native" && rec.hardware.length > 0
+        && caps.hardwareAccess.length > 0)
+    {
+        bool hasHwAccess = false;
+        foreach (h; caps.hardwareAccess) {
+            if (h == rec.hardware || h == "any") { hasHwAccess = true; break; }
+        }
+        if (!hasHwAccess) {
+            const oldHw = rec.hardware;
+            rec.hardware = "cpu_native";
+            if (rec.targetEndpoint.startsWith("solve_")) {
+                rec.targetEndpoint = "/v1/solve";
+            }
+            rec.estimatedVramMb = max(64.0, rec.estimatedVramMb * 0.1);
+            rec.rationale = format(
+                "%s (downgraded from %s to cpu_native due to account hardware access list).",
+                rec.rationale, oldHw
+            );
+        }
+    }
 }

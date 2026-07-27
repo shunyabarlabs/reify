@@ -26,6 +26,7 @@ import reify.errors :
     RequestDeliveryState;
 import reify.model : ConstraintLevel;
 import reify.result : SolveResult, buildSolveResult;
+import reify.router : RoutingRecommendation;
 
 import std.algorithm : any;
 import std.conv : to;
@@ -57,16 +58,27 @@ final class NavokojClient {
 
     SolveResult solve(
         CompiledModel compiled,
-        RequestOptions options
+        RequestOptions options,
+        RoutingRecommendation recommendation = RoutingRecommendation()
     ) {
-        auto raw = solveRaw(compiled, options);
+        auto raw = solveRaw(compiled, options, recommendation);
         return buildSolveResult(compiled, raw);
     }
 
     /** Execute the Navokoj wire contract without assuming Navokoj's response
      * schema. This is the seam used by SolverBackend adapters.
+     *
+     * When `recommendation` is supplied (engine or targetEndpoint set), it
+     * overrides the corresponding fields on the compiled request payload and
+     * selects the URL path. An empty `targetEndpoint` is the refusal sentinel
+     * from `recommendRoute` — the request is *not* transmitted and a
+     * CapabilityException is raised instead.
      */
-    JSONValue solveRaw(CompiledModel compiled, RequestOptions options) {
+    JSONValue solveRaw(
+        CompiledModel compiled,
+        RequestOptions options,
+        RoutingRecommendation recommendation = RoutingRecommendation()
+    ) {
         if (compiled is null) {
             throw new ProtocolException("Cannot submit a null compiled model");
         }
@@ -75,9 +87,18 @@ final class NavokojClient {
                 "No API key supplied. Set RequestOptions.apiKey or NAVOKOJ_API_KEY."
             );
         }
+        if (recommendation.isRefusal()) {
+            throw new CapabilityException(
+                "Refusing to send solve request: " ~ recommendation.rationale
+            );
+        }
         validateRequestOptions(options);
         options = ensureSolveTransportTimeout(compiled, options);
-        return post("/v1/solve", compiled.request, options);
+
+        auto payload = compiled.request;
+        string path = "/v1/solve";
+        applyRecommendation(payload, recommendation, path);
+        return post(path, payload, options);
     }
 
     JSONValue diagnose(
@@ -260,6 +281,28 @@ final class NavokojClient {
         auto termination = "termination_reason" in solution.object;
         return termination !is null && termination.type == JSONType.string &&
             termination.str == "partial";
+    }
+
+    /**
+     * Apply a routing recommendation to the outgoing solve request. Mutates
+     * `payload` in place and updates `path`. No-op when the recommendation
+     * has neither engine nor targetEndpoint set (caller passed a default).
+     */
+    private void applyRecommendation(
+        ref JSONValue payload,
+        const ref RoutingRecommendation recommendation,
+        ref string path
+    ) {
+        if (payload.type != JSONType.object) return;
+        if (recommendation.engine.length > 0) {
+            payload.object["engine"] = JSONValue(recommendation.engine);
+        }
+        if (recommendation.hardware.length > 0) {
+            payload.object["hardware"] = JSONValue(recommendation.hardware);
+        }
+        if (recommendation.targetEndpoint.length > 0) {
+            path = recommendation.targetEndpoint;
+        }
     }
 
     private ApiException apiError(HttpResponse response, JSONValue raw) {

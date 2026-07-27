@@ -4,7 +4,9 @@
 module reify.app;
 
 import reify.navokoj.client : NavokojClient, RequestOptions, defaultBaseUrl;
+import reify.navokoj.backend : NavokojBackend;
 import reify.transport : HttpTransport;
+import reify.backend : Capabilities;
 import reify.compiler;
 import reify.dimacs : dimacsToDocumentJson;
 import reify.diagnostics;
@@ -86,12 +88,79 @@ final class NavokojApp {
         // The public programming interface owns the full lifecycle: build,
         // compile, submit, hydrate, and verify. Callers should not have to
         // manually construct CNF or HTTP payloads.
+        if (options.compilation.engine == "auto") {
+            return solveAuto(input, options, transport);
+        }
+
         auto compiled = compile(input, options.compilation);
         auto request = options.request;
         if (request.apiKey.length == 0) {
             request.apiKey = environment.get("NAVOKOJ_API_KEY", "");
         }
         return new NavokojClient(transport).solve(compiled, request);
+    }
+
+    /**
+     * Build → compile → fetch capabilities → route → solve. The full auto-
+     * routing pipeline: the router decides engine + endpoint using live
+     * account limits, then the client transmits the request.
+     *
+     * Capabilities are fetched fresh per call (no TTL cache) so account
+     * upgrades or credit exhaustion are reflected immediately. The fetch is
+     * the second network round-trip; if it fails the exception bubbles up
+     * and no solve request is sent.
+     *
+     * If the router refuses (model exceeds account envelope) a
+     * CapabilityException is raised with the rationale — the client never
+     * transmits a request it knows will be rejected.
+     */
+    SolveResult solveAuto(
+        JSONValue input,
+        AppSolveOptions options = AppSolveOptions(),
+        HttpTransport transport = null
+    ) {
+        auto compiled = compile(input, options.compilation);
+        auto topology = analyzeCompiled(compiled);
+
+        auto request = options.request;
+        if (request.apiKey.length == 0) {
+            request.apiKey = environment.get("NAVOKOJ_API_KEY", "");
+        }
+
+        // Fresh-per-solve capabilities fetch — no TTL cache.
+        auto backend = new NavokojBackend(
+            new NavokojClient(transport),
+            request.apiKey,
+            request.baseUrl
+        );
+        Capabilities caps = backend.capabilities(request);
+
+        // applyAccountLimits in router.d handles both refusal and downgrade.
+        auto recommendation = recommendRoute(topology, options.compilation, caps);
+
+        return new NavokojClient(transport).solve(compiled, request, recommendation);
+    }
+
+    /**
+     * Probe the backend's live capability envelope and return the parsed
+     * JSON. Uses the same transport as `solve` so tests can intercept it
+     * via a FakeTransport.
+     */
+    JSONValue capabilities(
+        AppSolveOptions options = AppSolveOptions(),
+        HttpTransport transport = null
+    ) {
+        auto request = options.request;
+        if (request.apiKey.length == 0) {
+            request.apiKey = environment.get("NAVOKOJ_API_KEY", "");
+        }
+        auto backend = new NavokojBackend(
+            new NavokojClient(transport),
+            request.apiKey,
+            request.baseUrl
+        );
+        Capabilities caps = backend.capabilities(request);
+        return caps.toJson();
     }
 
     JSONValue diagnose(
@@ -277,6 +346,15 @@ int runNavokojApp(
                 output = app.diagnose(input, diagnoseOptions, transport);
                 break;
 
+            case "capabilities":
+                AppSolveOptions capabilitiesOptions;
+                capabilitiesOptions.request.apiKey = cli.apiKey;
+                capabilitiesOptions.request.baseUrl = cli.baseUrl;
+                capabilitiesOptions.request.transportTimeout =
+                    dur!"seconds"(cli.transportTimeoutSeconds);
+                output = app.capabilities(capabilitiesOptions, transport);
+                break;
+
             default:
                 throw new ModelException(
                     "Unknown command '" ~ cli.command ~ "'"
@@ -326,7 +404,7 @@ string navokojAppUsage() {
         "  --output <file>            Write output JSON to a file (default: stdout)\n" ~
         "  --api-key <token>          API key (default: NAVOKOJ_API_KEY)\n" ~
         "  --base-url <url>           API base URL\n" ~
-        "  --engine <name>            Solver engine (default: nitro)\n" ~
+        "  --engine <name>            Solver engine (default: auto — router picks)\n" ~
         "  --hardware <name>          Optional hardware target\n" ~
         "  --timeout <seconds>        Solver timeout budget\n" ~
         "  --min-satisfaction <0..1>  Stop after this clause satisfaction\n" ~
@@ -344,7 +422,7 @@ private struct CliOptions {
     string outputPath;
     string apiKey;
     string baseUrl = defaultBaseUrl;
-    string engine = "nitro";
+    string engine = "auto";
     string hardware;
     double timeoutSeconds = 0.0;
     double minSatisfaction = -1.0;
@@ -454,6 +532,7 @@ private CliOptions parseCli(string[] args) {
             case "analyze":
             case "diagnose":
             case "solve":
+            case "capabilities":
                 break;
             default:
                 throw new ModelException(
