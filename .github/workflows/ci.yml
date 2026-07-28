@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install D Compiler (LDC2)
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ldc-latest
+
+      - name: Create build directory
+        run: mkdir -p build
+
+      - name: Build Reify CLI
+        run: ldc2 -i -Isource source/app.d -of=build/reify
+
+      - name: Test - Core Compiler & Hydration Unit Tests
+        run: |
+          ldc2 -i -Isource tests/test_runner.d -of=build/reify-tests
+          ./build/reify-tests
+
+      - name: Test - Formula Mapping Tests
+        run: |
+          ldc2 -i -Isource tests/formula_mapping_tests.d -of=build/formula-mapping-tests
+          ./build/formula-mapping-tests
+
+      - name: Test - SpaceTime Scheduling Tests
+        run: |
+          ldc2 -i -Isource tests/spacetime_tests.d -of=build/spacetime-tests
+          ./build/spacetime-tests
+
+      - name: Test - Trust Primitive & Explainability Tests
+        run: |
+          ldc2 -i -Isource tests/trust_primitive_tests.d -of=build/trust-tests
+          ./build/trust-tests
+
+      - name: Verify CLI Binary Execution
+        run: |
+          ./build/reify validate --input examples/crop-allocation.json
+          ./build/reify analyze --input examples/crop-allocation.json
+          ./build/reify compile --input examples/crop-allocation.json
