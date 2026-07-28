@@ -1,5 +1,8 @@
 # Reify (`reify`)
 
+[![Dub version](https://img.shields.io/dub/v/reify.svg)](https://code.dlang.org/packages/reify)
+[![Dub downloads](https://img.shields.io/dub/dt/reify.svg)](https://code.dlang.org/packages/reify)
+
 ![Navokoj Grid](navokoj_grid.png)
 
 **Reify** is a domain-neutral, declarative D SDK, decision compiler, and CLI toolchain for high-performance constraint intelligence engines.
