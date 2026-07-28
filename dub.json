@@ -1,6 +1,10 @@
 {
   "name": "reify",
   "description": "A domain-neutral declarative D SDK and decision compiler. Reifies symbolic decision spaces into backend solver artifacts.",
+  "authors": ["ShunyaBar Labs"],
+  "homepage": "https://github.com/shunyabarlabs/reify",
+  "repository": "https://github.com/shunyabarlabs/reify",
+  "docs": "https://github.com/shunyabarlabs/reify/blob/main/README.md",
   "copyright": "Copyright © 2026 ShunyaBar Labs",
   "license": "BSL-1.0",
   "targetType": "library",
