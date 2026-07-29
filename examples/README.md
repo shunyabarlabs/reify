@@ -20,6 +20,7 @@ and preferences, compile, solve, hydrate, and verify.
 | **EV Fleet Grid Dispatch** | [`ev_fleet_grid_dispatch.d`](d/ev_fleet_grid_dispatch.d) | 1,152 | 7,117 | **24,181** | **23,989 / 23,989** | **Feasible** | 24-hr EV fleet ToU tariff, charger hardware concurrency, solar PV & battery protection |
 | **5G Edge VNF Slice Placement** | [`5g_slice_vnf_placement.d`](d/5g_slice_vnf_placement.d) | 448 | 1,121 | **14,821** | **14,789 / 14,789** | **Feasible** | URLLC/eMBB/mMTC slice DAG chains, GPU hardware affinity & regional HA anti-affinity |
 | **5G VNF Placement 10x Extreme** | [`5g_slice_vnf_placement_10x.d`](d/5g_slice_vnf_placement_10x.d) | **22,400** | **229,941** | **832,121** | **832,121 / 832,121** | **Optimal** | 160 MEC nodes, 16 regions, 40 slices, 140 VNF chains, 100% SAT in 2.76s |
+| **DNA Oligo Barcode Assembly** | [`dna_barcode_assembly.d`](d/dna_barcode_assembly.d) | 64 | 2,525 | **11,777** | **9,990 / 9,990** | **Feasible** | Next-Gen Sequencing 8-mer DNA multiplex tags, Hamming distance $\ge 3$, GC-content & hairpin exclusion |
 
 Build the D examples together with the compiler sources:
 
