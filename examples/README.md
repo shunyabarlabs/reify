@@ -18,6 +18,7 @@ and preferences, compile, solve, hydrate, and verify.
 | **Fleet Routing** | [`fleet_routing.d`](d/fleet_routing.d) | 60 | 60 | **128** | **128 / 128** | **Feasible** | Multi-vehicle tour routing with depot return constraints |
 | **Satellite Orbital Dispatch** | [`satellite_orbital_dispatch.d`](d/satellite_orbital_dispatch.d) | 48 | 25,043 | **100,104** | **99 / 99** | **Feasible** | 12-tick orbital battery SoC, SSD buffer, thermal non-overlap & science yield |
 | **EV Fleet Grid Dispatch** | [`ev_fleet_grid_dispatch.d`](d/ev_fleet_grid_dispatch.d) | 1,152 | 7,117 | **24,181** | **23,989 / 23,989** | **Feasible** | 24-hr EV fleet ToU tariff, charger hardware concurrency, solar PV & battery protection |
+| **5G Edge VNF Slice Placement** | [`5g_slice_vnf_placement.d`](d/5g_slice_vnf_placement.d) | 448 | 1,121 | **14,821** | **14,789 / 14,789** | **Feasible** | URLLC/eMBB/mMTC slice DAG chains, GPU hardware affinity & regional HA anti-affinity |
 
 Build the D examples together with the compiler sources:
 
