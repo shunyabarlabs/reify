@@ -22,6 +22,7 @@ and preferences, compile, solve, hydrate, and verify.
 | **5G VNF Placement 10x Extreme** | [`5g_slice_vnf_placement_10x.d`](d/5g_slice_vnf_placement_10x.d) | **22,400** | **229,941** | **832,121** | **832,121 / 832,121** | **Optimal** | 160 MEC nodes, 16 regions, 40 slices, 140 VNF chains, 100% SAT in 2.76s |
 | **DNA Oligo Barcode Assembly** | [`dna_barcode_assembly.d`](d/dna_barcode_assembly.d) | 64 | 2,525 | **11,777** | **9,990 / 9,990** | **Feasible** | Next-Gen Sequencing 8-mer DNA multiplex tags, Hamming distance $\ge 3$, GC-content & hairpin exclusion |
 | **Nuclear Fusion Tokamak Dispatch** | [`fusion_tokamak_sensor_dispatch.d`](d/fusion_tokamak_sensor_dispatch.d) | 1,024 | 4,625 | **13,017** | **100% SAT** | **Feasible** | 100M-Kelvin burning plasma, 16 toroidal sectors, NBI shielding & GF(2) poloidal coil parity balance |
+| **Space Debris Laser De-orbit** | [`space_debris_laser_deorbit.d`](d/space_debris_laser_deorbit.d) | 768 | 8,481 | **30,657** | **100% SAT** | **Feasible** | LEO space debris laser ablation, orbital LOS tracking, Kessler conjunction avoidance & GF(2) grid parity |
 
 Build the D examples together with the compiler sources:
 
