@@ -28,6 +28,10 @@ The below are the numbers from Navokoj's nitro engine, which can be selected wit
 | **Warehouse Robot MAPF Extreme** | [`warehouse_mapf_extreme.d`](d/warehouse_mapf_extreme.d) | 448 | 10,757 | **32,977** | **32,977 / 32,977** | **Optimal** | Autonomous Mobile Robot fleet pathfinding, vertex/edge swapping collision avoidance, 100% SAT in 0.13s |
 | **Warehouse MAPF 10x Extreme** | [`warehouse_mapf_10x_extreme.d`](d/warehouse_mapf_10x_extreme.d) | **1,728** | **55,561** | **190,525** | **190,525 / 190,525** | **Optimal** | 6x6 grid, 6 AMRs, 8 ticks, 190k pure CNF clauses, 100% SAT in 1.23s |
 | **Warehouse MAPF 20x Extreme** | [`warehouse_mapf_20x_extreme.d`](d/warehouse_mapf_20x_extreme.d) | **3,087** | **117,083** | **400,114** | **400,114 / 400,114** | **Optimal** | 7x7 grid, 7 AMRs, 9 ticks, 400k pure CNF clauses, 100% SAT in 2.66s |
+| **HFT Orderbook Arbitrage** | [`hft_orderbook_arbitrage.d`](d/hft_orderbook_arbitrage.d) | 1,440 | 4,321 | **14,975** | **14,975 / 14,975** | **Optimal** | Microsecond cyclic arbitrage across 6 exchanges & 6 currency legs, 100% SAT in 0.139s |
+| **Hypersonic Intercept Dispatch** | [`hypersonic_intercept_dispatch.d`](d/hypersonic_intercept_dispatch.d) | 304 | 512 | **784** | **100% SAT** | **Optimal** | Mach 8+ target tracking, Doppler radar caps & GF(2) 360-degree shield parity in 0.024s |
+| **CRISPR gRNA Off-Target Design** | [`crispr_gRNA_offtarget_design.d`](d/crispr_gRNA_offtarget_design.d) | 1,024 | 6,105 | **20,353** | **20,353 / 20,353** | **Optimal** | 16 target sites, 64 candidates, 64 off-targets, Hamming $\ge 4$ & GC thermal bounds in 0.070s |
+| **Subsea WDM Wavelength Routing** | [`subsea_wdm_wavelength_routing.d`](d/subsea_wdm_wavelength_routing.d) | 256 | 1,281 | **4,925** | **4,925 / 4,925** | **Optimal** | 16 transatlantic cable spans, 16 DWDM wavelengths, continuity & OSNR limits in 0.039s |
 
 Build the D examples together with the compiler sources:
 
