@@ -3,7 +3,9 @@
 [![Dub version](https://img.shields.io/dub/v/reify.svg)](https://code.dlang.org/packages/reify)
 [![Dub downloads](https://img.shields.io/dub/dt/reify.svg)](https://code.dlang.org/packages/reify)
 
-Reify is a declarative D SDK and compiler that turns what you *want* into a solved decision — automatically.
+![img](reify.png)
+
+Reify is a declarative D SDK and compiler that turns what you *want* into a solved decision, automatically.
 
 You describe the problem: "allocate acres to wheat, chickpeas, and rice", "schedule nurses across shifts", "place workloads on servers". Reify compiles that description into a solver, finds the best answer, verifies it, and gives you the result.
 
@@ -112,3 +114,5 @@ reify diagnose --input examples/json/crop-allocation.json
 Boost Software License 1.0 — see [LICENSE](LICENSE).
 
 ShunyaBar Labs.
+
+![img](cta.png)

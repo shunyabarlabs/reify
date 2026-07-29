@@ -3,6 +3,8 @@
 Each example uses the same Navokoj pipeline: define decisions, add hard rules
 and preferences, compile, solve, hydrate, and verify.
 
+The below are the numbers from Navokoj's nitro engine, which can be selected within reify.
+
 | Problem / Benchmark Domain | Example File | Logical Vars | Encoded CNF Vars | Total CNF Clauses | Hard Satisfied | Feasibility | Key Feature Demonstrated |
 |---|---|:---:|:---:|:---:|:---:|:---:|---|
 | **Nurse Shift Roster** | [`shift_scheduling.d`](d/shift_scheduling.d) | 168 | 476 | **1,481** | **238 / 238** | **Feasible** | Native GF(2) XOR parity crew rotation + Direct `.d` CLI |
@@ -151,3 +153,10 @@ Verification: HA isolation ✓, anti-affinity `[0][3],[6][11],[12][23],[7][18]` 
 All hard constraints are re-verified locally against the original `Model` — solver output is not trusted. `ExecutionTrace` contains `selectedEngine`, `solveTimeMs`, billing, and routing.
 
 This is the high-level surface: `categoricalVar`, `.same()/.different()/.equals()`, `implies`, `equivalent`, `require/prefer/medium`. `requireClause/preferClause` exist only for AMK capacity and large disjunctions where clause-level is genuinely required.
+
+
+Benchmarks powered by Navokoj!
+
+![img](../navokoj_grid.png)
+
+![img](../cta.png)
