@@ -5,24 +5,25 @@ and preferences, compile, solve, hydrate, and verify.
 
 | Problem / Benchmark Domain | Example File | Logical Vars | Encoded CNF Vars | Total CNF Clauses | Hard Satisfied | Feasibility | Key Feature Demonstrated |
 |---|---|:---:|:---:|:---:|:---:|:---:|---|
-| **Nurse Shift Roster** | [`shift_scheduling.d`](shift_scheduling.d) | 168 | 476 | **1,481** | **238 / 238** | **Feasible** | Native GF(2) XOR parity crew rotation + Direct `.d` CLI |
-| **Quantum Qubit Routing** | [`quantum_qubit_routing.d`](quantum_qubit_routing.d) | 270 | 1,051 | **4,180** | **858 / 858** | **Feasible** | 2D spatial bijectivity, hardware gate adjacency, crosstalk avoidance |
-| **Food Delivery VRPTW** | [`food_delivery_vrptw.d`](food_delivery_vrptw.d) | 16 | 12,374 | **48,890** | **84 / 84** | **Feasible** | Vehicle routing, interval overlap bounds, integer time windows |
-| **Package Dependency Extreme** | [`package_dependency_extreme.d`](package_dependency_extreme.d) | 200 | 598 | **2,188** | **180 / 180** | **Feasible** | 40-package 5-level semver DAG, conflict exclusions & XOR audit |
-| **Package Resolver 140-Pkg** | [`package_dependency_140pkg.d`](package_dependency_140pkg.d) | 1,120 | 3,350 | **18,624** | **8,709** | Anytime Partial | 140-package 8-level deep semver DAG, cross-conflicts & parity |
-| **Nurse WCNF Roster** | [`nurse_wcnf_scheduling.d`](nurse_wcnf_scheduling.d) | 630 | 8,269 | **32,458** | **645 / 687** | Anytime Partial | WCNF soft preference optimization with 30-day shift constraints |
-| **Factory 4-Shift Schedule** | [`factory_4shift_app.d`](factory_4shift_app.d) | 384 | 6,866 | **27,205** | **600 / 600** | **Feasible** | Scaled Order Encoding for multi-shift industrial labor laws |
-| **Job Shop Scheduling** | [`jobshop_extreme.d`](jobshop_extreme.d) | 960 | 18,020 | **79,518** | **1,920 / 1,920** | **Feasible** | Multi-resource machine precedence & non-overlapping jobs |
-| **Data Center Placement** | [`hard_benchmark_cnf.d`](hard_benchmark_cnf.d) | 192 | 403 | **403** | **403 / 403** | **Feasible** | Categorical placement, HA fault-domain isolation, AMK capacity |
-| **Hospital Surgery Scheduling** | [`hospital_surgery_scheduling.d`](hospital_surgery_scheduling.d) | 138 | 138 | **138** | **138 / 138** | **Feasible** | OR room allocation with surgeon availability & equipment rules |
-| **Fleet Routing** | [`fleet_routing.d`](fleet_routing.d) | 60 | 60 | **128** | **128 / 128** | **Feasible** | Multi-vehicle tour routing with depot return constraints |
+| **Nurse Shift Roster** | [`shift_scheduling.d`](d/shift_scheduling.d) | 168 | 476 | **1,481** | **238 / 238** | **Feasible** | Native GF(2) XOR parity crew rotation + Direct `.d` CLI |
+| **Quantum Qubit Routing** | [`quantum_qubit_routing.d`](d/quantum_qubit_routing.d) | 270 | 1,051 | **4,180** | **858 / 858** | **Feasible** | 2D spatial bijectivity, hardware gate adjacency, crosstalk avoidance |
+| **Food Delivery VRPTW** | [`food_delivery_vrptw.d`](d/food_delivery_vrptw.d) | 16 | 12,374 | **48,890** | **84 / 84** | **Feasible** | Vehicle routing, interval overlap bounds, integer time windows |
+| **Package Dependency Extreme** | [`package_dependency_extreme.d`](d/package_dependency_extreme.d) | 200 | 598 | **2,188** | **180 / 180** | **Feasible** | 40-package 5-level semver DAG, conflict exclusions & XOR audit |
+| **Package Resolver 140-Pkg** | [`package_dependency_140pkg.d`](d/package_dependency_140pkg.d) | 1,120 | 3,350 | **18,624** | **8,709** | Anytime Partial | 140-package 8-level deep semver DAG, cross-conflicts & parity |
+| **Nurse WCNF Roster** | [`nurse_wcnf_scheduling.d`](d/nurse_wcnf_scheduling.d) | 630 | 8,269 | **32,458** | **645 / 687** | Anytime Partial | WCNF soft preference optimization with 30-day shift constraints |
+| **Factory 4-Shift Schedule** | [`factory_4shift_app.d`](d/factory_4shift_app.d) | 384 | 6,866 | **27,205** | **600 / 600** | **Feasible** | Scaled Order Encoding for multi-shift industrial labor laws |
+| **Job Shop Scheduling** | [`jobshop_extreme.d`](d/jobshop_extreme.d) | 960 | 18,020 | **79,518** | **1,920 / 1,920** | **Feasible** | Multi-resource machine precedence & non-overlapping jobs |
+| **Data Center Placement** | [`hard_benchmark_cnf.d`](d/hard_benchmark_cnf.d) | 192 | 403 | **403** | **403 / 403** | **Feasible** | Categorical placement, HA fault-domain isolation, AMK capacity |
+| **Hospital Surgery Scheduling** | [`hospital_surgery_scheduling.d`](d/hospital_surgery_scheduling.d) | 138 | 138 | **138** | **138 / 138** | **Feasible** | OR room allocation with surgeon availability & equipment rules |
+| **Fleet Routing** | [`fleet_routing.d`](d/fleet_routing.d) | 60 | 60 | **128** | **128 / 128** | **Feasible** | Multi-vehicle tour routing with depot return constraints |
+| **Satellite Orbital Dispatch** | [`satellite_orbital_dispatch.d`](d/satellite_orbital_dispatch.d) | 48 | 25,043 | **100,104** | **99 / 99** | **Feasible** | 12-tick orbital battery SoC, SSD buffer, thermal non-overlap & science yield |
 
 Build the D examples together with the compiler sources:
 
 ```bash
-ldc2 examples/graph_coloring.d source/reify/*.d -Isource -of=build/graph-coloring-app
-ldc2 examples/scheduling.d source/reify/*.d -Isource -of=build/scheduling-app
-ldc2 examples/ramsey.d source/reify/*.d -Isource -of=build/ramsey-app
+ldc2 examples/d/graph_coloring.d source/reify/*.d -Isource -of=build/graph-coloring-app
+ldc2 examples/d/scheduling.d source/reify/*.d -Isource -of=build/scheduling-app
+ldc2 examples/d/ramsey.d source/reify/*.d -Isource -of=build/ramsey-app
 ```
 
 The data center benchmark calls the Navokoj backend directly via `app.solve()`,
@@ -30,7 +31,7 @@ so it pulls in `reify.navokoj.client` (a sub-module) and needs the `-i` flag
 for transitive import resolution plus an API key in the environment:
 
 ```bash
-ldc2 -i examples/hard_benchmark_cnf.d source/reify/package.d \
+ldc2 -i examples/d/hard_benchmark_cnf.d source/reify/package.d \
     source/reify/errors.d source/reify/model.d source/reify/compiler.d \
     source/reify/formula.d source/reify/dimacs.d source/reify/opb.d \
     source/reify/result.d source/reify/backend.d source/reify/transport.d \

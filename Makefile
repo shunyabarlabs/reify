@@ -38,20 +38,20 @@ spacetime-test: libreify
 	$(BUILD_DIR)/spacetime-tests
 
 check: build test trust-test spacetime-test
-	$(LDC) examples/crop_app.d -Isource $(LDFLAGS) -of=$(BUILD_DIR)/crop-app
-	$(LDC) examples/vehicle_routing.d -Isource $(LDFLAGS) -of=$(BUILD_DIR)/vehicle-routing-app
-	$(LDC) examples/nurse_wcnf_scheduling.d -Isource $(LDFLAGS) -of=$(BUILD_DIR)/nurse-wcnf-scheduling-app
+	$(LDC) examples/d/crop_app.d -Isource $(LDFLAGS) -of=$(BUILD_DIR)/crop-app
+	$(LDC) examples/d/vehicle_routing.d -Isource $(LDFLAGS) -of=$(BUILD_DIR)/vehicle-routing-app
+	$(LDC) examples/d/nurse_wcnf_scheduling.d -Isource $(LDFLAGS) -of=$(BUILD_DIR)/nurse-wcnf-scheduling-app
 	$(LDC) -Isource -i -unittest -main $(LDFLAGS) source/reify/opb.d -od=$(BUILD_DIR) -of=$(BUILD_DIR)/opb-tests
 	$(BUILD_DIR)/opb-tests
-	$(BUILD_DIR)/reify validate --input examples/crop-allocation.json
-	$(BUILD_DIR)/reify compile --input examples/exam-allocation.json
-	$(BUILD_DIR)/reify compile --input examples/pigeonhole-3-2.cnf
-	$(BUILD_DIR)/reify compile --input examples/pigeonhole-3-2.opb
-	$(BUILD_DIR)/reify validate --format dimacs < examples/pigeonhole-3-2.cnf
-	$(BUILD_DIR)/reify validate --format opb < examples/pigeonhole-3-2.opb
-	$(BUILD_DIR)/crop-app validate --input examples/crop-allocation.json
-	$(BUILD_DIR)/vehicle-routing-app validate --input examples/crop-allocation.json
-	$(BUILD_DIR)/nurse-wcnf-scheduling-app validate --input examples/nurse-scheduling.json
+	$(BUILD_DIR)/reify validate --input examples/json/crop-allocation.json
+	$(BUILD_DIR)/reify compile --input examples/json/exam-allocation.json
+	$(BUILD_DIR)/reify compile --input examples/json/pigeonhole-3-2.cnf
+	$(BUILD_DIR)/reify compile --input examples/json/pigeonhole-3-2.opb
+	$(BUILD_DIR)/reify validate --format dimacs < examples/json/pigeonhole-3-2.cnf
+	$(BUILD_DIR)/reify validate --format opb < examples/json/pigeonhole-3-2.opb
+	$(BUILD_DIR)/crop-app validate --input examples/json/crop-allocation.json
+	$(BUILD_DIR)/vehicle-routing-app validate --input examples/json/crop-allocation.json
+	$(BUILD_DIR)/nurse-wcnf-scheduling-app validate --input examples/json/nurse-scheduling.json
 
 interop: build
 	command -v cnfgen

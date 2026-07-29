@@ -29,7 +29,7 @@ The Reify CLI natively compiles and executes `.d` source files on the fly as con
 
 ```bash
 # Direct source model evaluation & cloud execution:
-reify solve --input examples/shift_scheduling.d --engine nitro --api-key $NAVOKOJ_API_KEY
+reify solve --input examples/d/shift_scheduling.d --engine nitro --api-key $NAVOKOJ_API_KEY
 ```
 
 Under the hood, `reify solve` transparently:
@@ -263,16 +263,16 @@ auto rawResult = client.solveRaw(compiled, reqOpts, rec);
 
 ```bash
 # Validate
-reify validate --input examples/crop-allocation.json
+reify validate --input examples/json/crop-allocation.json
 
 # Analyze topology
-reify analyze --input examples/crop-allocation.json
+reify analyze --input examples/json/crop-allocation.json
 
 # Compile (no API call)
-reify compile --input examples/crop-allocation.json
+reify compile --input examples/json/crop-allocation.json
 
 # Solve (requires API key)
-NAVOKOJ_API_KEY="nvkj_api_..." reify solve --input examples/crop-allocation.json --engine nitro --timeout 10
+NAVOKOJ_API_KEY="nvkj_api_..." reify solve --input examples/json/crop-allocation.json --engine nitro --timeout 10
 ```
 
 ---

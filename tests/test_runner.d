@@ -1554,12 +1554,12 @@ private void testDocumentNumericAndShapeValidation() {
 }
 
 private void testDocumentExamples() {
-    auto cropInput = parseJSON(readText("examples/crop-allocation.json"));
+    auto cropInput = parseJSON(readText("examples/json/crop-allocation.json"));
     auto crop = documentApp().compile(cropInput);
     check(crop.backend == Backend.cnf, "Crop document compiles end to end");
 
     auto portfolioInput = parseJSON(
-        readText("examples/portfolio-allocation.json")
+        readText("examples/json/portfolio-allocation.json")
     );
     auto portfolio = documentApp().compile(portfolioInput);
     check(
@@ -1568,12 +1568,12 @@ private void testDocumentExamples() {
         "Portfolio objective compiles to weighted clauses"
     );
 
-    auto examInput = parseJSON(readText("examples/exam-allocation.json"));
+    auto examInput = parseJSON(readText("examples/json/exam-allocation.json"));
     auto exam = documentApp().compile(examInput);
     check(exam.backend == Backend.qstate, "Exam document selects Q-State");
 
     auto quadraticInput = parseJSON(
-        readText("examples/unsupported-quadratic-portfolio.json")
+        readText("examples/json/unsupported-quadratic-portfolio.json")
     );
     bool caught;
     try {

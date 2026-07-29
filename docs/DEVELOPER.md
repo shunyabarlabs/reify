@@ -4,7 +4,7 @@ This guide walks through every stage a developer encounters when using the
 Reify SDK from D code, in the order they encounter them. Each stage has a
 one-line summary, a code snippet, and the most common mistakes.
 
-A runnable companion is [`examples/dev_lifecycle_walkthrough.d`](../examples/dev_lifecycle_walkthrough.d)
+A runnable companion is [`examples/d/dev_lifecycle_walkthrough.d`](../examples/d/dev_lifecycle_walkthrough.d)
 — a 4-node graph coloring that exercises every stage. Stages 1–5 work
 without an API key; stages 7–11 require `NAVOKOJ_API_KEY` in the environment.
 
@@ -267,11 +267,11 @@ hard constraints. Don't trust the solver; trust `verification.feasible`.
 
 ## End-to-End
 
-[`examples/dev_lifecycle_walkthrough.d`](../examples/dev_lifecycle_walkthrough.d)
+[`examples/d/dev_lifecycle_walkthrough.d`](../examples/d/dev_lifecycle_walkthrough.d)
 runs all 11 stages against a 4-node graph coloring problem. Build it with:
 
 ```bash
-ldc2 -i examples/dev_lifecycle_walkthrough.d source/reify/package.d \
+ldc2 -i examples/d/dev_lifecycle_walkthrough.d source/reify/package.d \
     source/reify/errors.d source/reify/model.d source/reify/compiler.d \
     source/reify/formula.d source/reify/dimacs.d source/reify/opb.d \
     source/reify/result.d source/reify/backend.d source/reify/transport.d \

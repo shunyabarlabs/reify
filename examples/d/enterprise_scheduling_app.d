@@ -141,8 +141,8 @@ void main() {
 
     // Save CNF request
     import std.file : write;
-    write("examples/enterprise-scheduling.request.json", compiled.request.toPrettyString());
-    writeln("Request written to examples/enterprise-scheduling.request.json");
+    write("examples/json/enterprise-scheduling.request.json", compiled.request.toPrettyString());
+    writeln("Request written to examples/json/enterprise-scheduling.request.json");
 
     // Solve via Navokoj
     writeln("\n=== Solving via Navokoj ===");

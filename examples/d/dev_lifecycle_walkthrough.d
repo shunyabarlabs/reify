@@ -22,7 +22,7 @@
 //   11. Diagnose  — physics-informed analysis (needs API key)
 //
 //  Build:
-//    ldc2 -i examples/dev_lifecycle_walkthrough.d source/reify/package.d \
+//    ldc2 -i examples/d/dev_lifecycle_walkthrough.d source/reify/package.d \
 //        source/reify/errors.d source/reify/model.d source/reify/compiler.d \
 //        source/reify/formula.d source/reify/dimacs.d source/reify/opb.d \
 //        source/reify/result.d source/reify/backend.d source/reify/transport.d \

@@ -121,8 +121,8 @@ void main() {
     // Save CNF request to JSON file for Navokoj API
     import std.file : write;
     auto request = compiled.request;
-    write("examples/hospital-scheduling.request.json", request.toPrettyString());
-    writeln("Request written to examples/hospital-scheduling.request.json");
+    write("examples/json/hospital-scheduling.request.json", request.toPrettyString());
+    writeln("Request written to examples/json/hospital-scheduling.request.json");
 
     // Solve directly via Navokoj
     writeln("\n=== Solving via Navokoj ===");

@@ -85,16 +85,16 @@ Example problems in [`examples/`](examples/): crop allocation, nurse scheduling,
 reify capabilities
 
 # Validate a model (local, no API call)
-reify validate --input examples/crop-allocation.json
+reify validate --input examples/json/crop-allocation.json
 
 # See what the compiler produces
-reify compile --input examples/crop-allocation.json
+reify compile --input examples/json/crop-allocation.json
 
 # Solve and get the answer
-reify solve --input examples/crop-allocation.json --timeout 10
+reify solve --input examples/json/crop-allocation.json --timeout 10
 
 # Debug why a solution works
-reify diagnose --input examples/crop-allocation.json
+reify diagnose --input examples/json/crop-allocation.json
 ```
 
 ---
