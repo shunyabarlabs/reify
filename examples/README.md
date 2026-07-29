@@ -3,21 +3,16 @@
 Each example uses the same Navokoj pipeline: define decisions, add hard rules
 and preferences, compile, solve, hydrate, and verify.
 
-| Problem | Example | What it teaches |
-|---|---|---|
-| SAT | [`pigeonhole-3-2.cnf`](pigeonhole-3-2.cnf) | Exact hard-clause satisfiability and DIMACS ingestion |
-| MaxSAT | [`service-selection.json`](service-selection.json) | Hard implications plus weighted preferences |
-| TSP | [`vehicle_routing.d`](vehicle_routing.d) | One vehicle, one tour, distance minimization |
-| VRP | [`vehicle_routing.d`](vehicle_routing.d) | Routing decisions are the starting point for capacity/time-window extensions |
-| Graph Coloring | [`graph_coloring.d`](graph_coloring.d) | One-hot color decisions and edge inequality |
-| Scheduling | [`scheduling.d`](scheduling.d) | Assignment variables, coverage, and non-overlap rules |
-| SpaceTime scheduling | [`spacetime_surgery.d`](spacetime_surgery.d) | Typed dimensions, temporal recipes, WCNF export, and verification provenance |
-| SpaceTime API solve | [`spacetime_surgery_api.d`](spacetime_surgery_api.d) | Sends the typed SpaceTime model through the real Navokoj API and locally verifies the response |
-| List coloring | [`list_coloring.d`](list_coloring.d) | List-restricted vertex/color relation with exactly-one and edge inequality constraints |
-| Hard SpaceTime benchmark | [`spacetime_exam_timetabling.d`](spacetime_exam_timetabling.d) | Exam × room × slot list-coloring with availability, conflicts, capacity, and soft preferences |
-| Data Center Placement | [`hard_benchmark_cnf.d`](hard_benchmark_cnf.d) | Categorical placement, channeling, AMK capacity, and WCNF preferences — 24 workloads across 8 servers in 4 fault domains |
-| Ramsey | [`ramsey.d`](ramsey.d) | Color every graph edge while forbidding monochromatic cliques |
-| Lifecycle walkthrough | [`dev_lifecycle_walkthrough.d`](dev_lifecycle_walkthrough.d) | Exercises every SDK stage (author → build → validate → compile → analyze → configure → solve → inspect → explain → present → diagnose) on a small graph coloring. Pairs with [`docs/DEVELOPER.md`](../docs/DEVELOPER.md). |
+| Problem / Benchmark Domain | Example File | Logical Vars | Encoded CNF Vars | Total CNF Clauses | Hard Satisfied | Feasibility | Key Feature Demonstrated |
+|---|---|:---:|:---:|:---:|:---:|:---:|---|
+| **Nurse Shift Roster** | [`shift_scheduling.d`](shift_scheduling.d) | 168 | 476 | **1,481** | **238 / 238** | **Feasible** | Native GF(2) XOR parity crew rotation + Direct `.d` CLI |
+| **Quantum Qubit Routing** | [`quantum_qubit_routing.d`](quantum_qubit_routing.d) | 270 | 1,051 | **4,180** | **858 / 858** | **Feasible** | 2D spatial bijectivity, hardware gate adjacency, crosstalk avoidance |
+| **Nurse WCNF Roster** | [`nurse_wcnf_scheduling.d`](nurse_wcnf_scheduling.d) | 630 | 8,269 | **32,458** | **645 / 687** | Anytime Partial | WCNF soft preference optimization with 30-day shift constraints |
+| **Factory 4-Shift Schedule** | [`factory_4shift_app.d`](factory_4shift_app.d) | 384 | 6,866 | **27,205** | **600 / 600** | **Feasible** | Scaled Order Encoding for multi-shift industrial labor laws |
+| **Job Shop Scheduling** | [`jobshop_extreme.d`](jobshop_extreme.d) | 960 | 18,020 | **79,518** | **1,920 / 1,920** | **Feasible** | Multi-resource machine precedence & non-overlapping jobs |
+| **Data Center Placement** | [`hard_benchmark_cnf.d`](hard_benchmark_cnf.d) | 192 | 403 | **403** | **403 / 403** | **Feasible** | Categorical placement, HA fault-domain isolation, AMK capacity |
+| **Hospital Surgery Scheduling** | [`hospital_surgery_scheduling.d`](hospital_surgery_scheduling.d) | 138 | 138 | **138** | **138 / 138** | **Feasible** | OR room allocation with surgeon availability & equipment rules |
+| **Fleet Routing** | [`fleet_routing.d`](fleet_routing.d) | 60 | 60 | **128** | **128 / 128** | **Feasible** | Multi-vehicle tour routing with depot return constraints |
 
 Build the D examples together with the compiler sources:
 
