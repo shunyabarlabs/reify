@@ -16,10 +16,11 @@ import reify.opb : opbToDocumentJson;
 import reify.result;
 import reify.router;
 
+import std.algorithm : endsWith;
 import std.conv : to;
 import std.datetime : dur;
 import std.file : readText, write;
-import std.json : JSONValue, parseJSON;
+import std.json : JSONType, JSONValue, parseJSON;
 import std.process : environment;
 import std.stdio : stderr, stdin, stdout;
 import std.string : startsWith, strip, toLower;
@@ -85,9 +86,24 @@ final class NavokojApp {
         AppSolveOptions options = AppSolveOptions(),
         HttpTransport transport = null
     ) {
-        // The public programming interface owns the full lifecycle: build,
-        // compile, submit, hydrate, and verify. Callers should not have to
-        // manually construct CNF or HTTP payloads.
+        if (input.type == JSONType.object && ("clauses" in input.object || "qstate" in input.object || "xor_constraints" in input.object || "num_vars" in input.object)) {
+            auto reqOpts = options.request;
+            if (reqOpts.apiKey.length == 0) {
+                reqOpts.apiKey = environment.get("NAVOKOJ_API_KEY", "");
+            }
+            RoutingRecommendation rec;
+            if (options.compilation.engine.length > 0 && options.compilation.engine != "auto") {
+                rec.engine = options.compilation.engine;
+            }
+            if (options.compilation.hardware.length > 0) {
+                rec.hardware = options.compilation.hardware;
+            }
+            auto dummyModel = new Model("precompiled");
+            auto compiled = new CompiledModel(dummyModel);
+            compiled.request = input;
+            return new NavokojClient(transport).solve(compiled, reqOpts, rec);
+        }
+
         if (options.compilation.engine == "auto") {
             return solveAuto(input, options, transport);
         }
@@ -257,6 +273,21 @@ int runNavokojApp(
             return 0;
         }
 
+        if (cli.inputPath.length != 0 && cli.inputPath.endsWith(".d")) {
+            import std.process : executeShell;
+            const apiKey = cli.apiKey.length > 0 ? cli.apiKey : environment.get("NAVOKOJ_API_KEY", "");
+            string cmd = "echo '{}' | NAVOKOJ_API_KEY=" ~ apiKey ~ " ldc2 -i -Isource -run " ~ cli.inputPath ~ " " ~ cli.command;
+            if (cli.engine.length > 0) cmd ~= " --engine " ~ cli.engine;
+            if (cli.hardware.length > 0) cmd ~= " --hardware " ~ cli.hardware;
+            if (cli.apiKey.length > 0) cmd ~= " --api-key " ~ cli.apiKey;
+            if (cli.pretty) cmd ~= " --pretty";
+            auto res = executeShell(cmd);
+            if (res.status != 0) {
+                throw new ModelException("Failed to execute D model file '" ~ cli.inputPath ~ "':\n" ~ res.output);
+            }
+            stdout.writeln(res.output);
+            return 0;
+        }
         const inputText = cli.inputPath.length == 0
             ? readAllStdin()
             : readText(cli.inputPath);
@@ -546,11 +577,9 @@ private CliOptions parseCli(string[] args) {
 private JSONValue parseAppInput(string content, string requestedFormat) {
     auto format = requestedFormat;
     if (format == "auto") {
+        import std.string : indexOf;
         const trimmed = content.strip;
-        if (
-            trimmed.length != 0 &&
-            (trimmed[0] == '{' || trimmed[0] == '[')
-        ) {
+        if (content.indexOf('{') != -1) {
             format = "json";
         } else if (looksLikeOpb(trimmed)) {
             format = "opb";
@@ -560,6 +589,15 @@ private JSONValue parseAppInput(string content, string requestedFormat) {
     }
 
     if (format == "json") {
+        import std.string : indexOf;
+        auto jsonStart = content.indexOf('{');
+        if (jsonStart != -1) {
+            auto parsed = parseJSON(content[jsonStart .. $]);
+            if (parsed.type == JSONType.object && "request" in parsed.object) {
+                return parsed.object["request"];
+            }
+            return parsed;
+        }
         return parseJSON(content);
     }
     if (format == "dimacs") {

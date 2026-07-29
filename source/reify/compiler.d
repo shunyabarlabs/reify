@@ -544,27 +544,32 @@ private final class CnfCompiler {
             );
         }
 
+        const bool isXorCapableEngine =
+            options.engine == "auto" ||
+            options.engine == "nitro" ||
+            options.engine == "hybrid" ||
+            options.engine == "sutra";
+
         useNativeParity =
             options.preferNativeParity &&
-            options.engine == "auto" &&
-            options.hardware.length == 0 &&
+            isXorCapableEngine &&
             model.internalParityConstraints.length != 0 &&
             model.internalObjectives.length == 0 &&
             model.internalNativeClauses.all!(
                 clause => clause.level == ConstraintLevel.hard
             ) &&
             model.internalConstraints.all!(
-                constraint => constraint.level == ConstraintLevel.hard
+                clause => clause.level == ConstraintLevel.hard
             );
         if (
             options.preferNativeParity &&
             !useNativeParity &&
             model.internalParityConstraints.length != 0 &&
-            (options.engine != "auto" || options.hardware.length != 0)
+            !isXorCapableEngine
         ) {
             result.warnings ~=
-                "Native parity was lowered to CNF so the explicit engine/hardware " ~
-                "selection could be preserved";
+                "Native parity was lowered to CNF because the selected engine " ~
+                "does not support native XOR constraints";
         }
         if (!useNativeParity) {
             encodeParityAsCnf();
@@ -1967,6 +1972,9 @@ private final class CnfCompiler {
             request["hardware"] = JSONValue(options.hardware);
         }
 
+        if (options.engine.length != 0 && options.engine != "auto") {
+            request["engine"] = JSONValue(options.engine);
+        }
         if (useNativeParity) {
             JSONValue[] parityValues;
             foreach (parity; model.internalParityConstraints) {
@@ -1983,10 +1991,8 @@ private final class CnfCompiler {
                 parityValues ~= JSONValue(parityValue);
             }
             request["xor_constraints"] = JSONValue(parityValues);
-            request["strategy"] = JSONValue("auto");
             result.backend = Backend.hybrid;
         } else {
-            request["engine"] = JSONValue(options.engine);
             result.backend = Backend.cnf;
         }
 

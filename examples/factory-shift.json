@@ -1,0 +1,50 @@
+{
+  "name": "factory-shift-scheduling",
+  "variables": [
+    {"name": "shift_a_workers", "type": "integer", "lower": 0, "upper": 32},
+    {"name": "shift_b_workers", "type": "integer", "lower": 0, "upper": 32},
+    {"name": "shift_c_workers", "type": "integer", "lower": 0, "upper": 32},
+    {"name": "shift_d_workers", "type": "integer", "lower": 0, "upper": 32}
+  ],
+  "constraints": [
+    {
+      "name": "exact staffing",
+      "level": "hard",
+      "expression": {
+        "op": "eq",
+        "left": {"op": "sum", "args": ["shift_a_workers", "shift_b_workers", "shift_c_workers", "shift_d_workers"]},
+        "right": 32
+      }
+    },
+    {
+      "name": "shift_a min",
+      "level": "hard",
+      "expression": {"op": "ge", "left": "shift_a_workers", "right": 4}
+    },
+    {
+      "name": "shift_b min",
+      "level": "hard",
+      "expression": {"op": "ge", "left": "shift_b_workers", "right": 4}
+    },
+    {
+      "name": "shift_c min",
+      "level": "hard",
+      "expression": {"op": "ge", "left": "shift_c_workers", "right": 4}
+    },
+    {
+      "name": "shift_d min",
+      "level": "hard",
+      "expression": {"op": "ge", "left": "shift_d_workers", "right": 4}
+    }
+  ],
+  "objectives": [
+    {
+      "name": "minimize total workers",
+      "sense": "minimize",
+      "expression": {
+        "op": "sum",
+        "args": ["shift_a_workers", "shift_b_workers", "shift_c_workers", "shift_d_workers"]
+      }
+    }
+  ]
+}
