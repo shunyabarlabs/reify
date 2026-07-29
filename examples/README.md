@@ -8,6 +8,7 @@ and preferences, compile, solve, hydrate, and verify.
 | **Nurse Shift Roster** | [`shift_scheduling.d`](shift_scheduling.d) | 168 | 476 | **1,481** | **238 / 238** | **Feasible** | Native GF(2) XOR parity crew rotation + Direct `.d` CLI |
 | **Quantum Qubit Routing** | [`quantum_qubit_routing.d`](quantum_qubit_routing.d) | 270 | 1,051 | **4,180** | **858 / 858** | **Feasible** | 2D spatial bijectivity, hardware gate adjacency, crosstalk avoidance |
 | **Package Dependency Extreme** | [`package_dependency_extreme.d`](package_dependency_extreme.d) | 200 | 598 | **2,188** | **180 / 180** | **Feasible** | 40-package 5-level semver DAG, conflict exclusions & XOR audit |
+| **Package Resolver 140-Pkg** | [`package_dependency_140pkg.d`](package_dependency_140pkg.d) | 1,120 | 3,350 | **18,624** | **8,709** | Anytime Partial | 140-package 8-level deep semver DAG, cross-conflicts & parity |
 | **Nurse WCNF Roster** | [`nurse_wcnf_scheduling.d`](nurse_wcnf_scheduling.d) | 630 | 8,269 | **32,458** | **645 / 687** | Anytime Partial | WCNF soft preference optimization with 30-day shift constraints |
 | **Factory 4-Shift Schedule** | [`factory_4shift_app.d`](factory_4shift_app.d) | 384 | 6,866 | **27,205** | **600 / 600** | **Feasible** | Scaled Order Encoding for multi-shift industrial labor laws |
 | **Job Shop Scheduling** | [`jobshop_extreme.d`](jobshop_extreme.d) | 960 | 18,020 | **79,518** | **1,920 / 1,920** | **Feasible** | Multi-resource machine precedence & non-overlapping jobs |
