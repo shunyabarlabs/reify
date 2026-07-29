@@ -2,11 +2,12 @@
 // Copyright 2026 ShunyaBar Labs. All rights reserved.
 //
 // ============================================================================
-//  HFT Multi-Exchange Orderbook Arbitrage & Dark Pool Routing Benchmark
+//  Market Structure Routing & Execution Consistency Benchmark
 // ============================================================================
 //
-//  Models microsecond cyclic arbitrage across 6 exchanges (Binance, Coinbase,
-//  Kraken, Uniswap v3, DarkPool A, DarkPool B) over 6 currency legs and 8 time ticks.
+//  Models a routing and execution consistency problem inspired by market
+//  structure across 6 exchange venues (Binance, Coinbase, Kraken, Uniswap v3,
+//  DarkPool A, DarkPool B) over 6 currency legs and 8 execution ticks.
 //
 //  Hard Constraints:
 //  - Single trade leg per exchange per microsecond tick
