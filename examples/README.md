@@ -24,6 +24,7 @@ and preferences, compile, solve, hydrate, and verify.
 | **Nuclear Fusion Tokamak Dispatch** | [`fusion_tokamak_sensor_dispatch.d`](d/fusion_tokamak_sensor_dispatch.d) | 1,024 | 4,625 | **13,017** | **100% SAT** | **Feasible** | 100M-Kelvin burning plasma, 16 toroidal sectors, NBI shielding & GF(2) poloidal coil parity balance |
 | **Space Debris Laser De-orbit** | [`space_debris_laser_deorbit.d`](d/space_debris_laser_deorbit.d) | 768 | 8,481 | **30,657** | **100% SAT** | **Feasible** | LEO space debris laser ablation, orbital LOS tracking, Kessler conjunction avoidance & GF(2) grid parity |
 | **Warehouse Robot MAPF Extreme** | [`warehouse_mapf_extreme.d`](d/warehouse_mapf_extreme.d) | 448 | 10,757 | **32,977** | **32,977 / 32,977** | **Optimal** | Autonomous Mobile Robot fleet pathfinding, vertex/edge swapping collision avoidance, 100% SAT in 0.13s |
+| **Warehouse MAPF 10x Extreme** | [`warehouse_mapf_10x_extreme.d`](d/warehouse_mapf_10x_extreme.d) | **1,728** | **55,561** | **190,525** | **190,525 / 190,525** | **Optimal** | 6x6 grid, 6 AMRs, 8 ticks, 190k pure CNF clauses, 100% SAT in 1.23s |
 
 Build the D examples together with the compiler sources:
 
