@@ -94,19 +94,18 @@ RoutingRecommendation recommendRouteByTopology(
         return rec;
     }
 
-    // 2. Massive High-Clause CPU Instance -> SUTRA C Engine (Handles 113M+ clauses natively)
-    if (topology.clauseCount > 5_000_000 && topology.objectiveCount == 0) {
-        rec.engine = "nitro";
-        rec.hardware = "cpu_native";
-        rec.targetEndpoint = "/v1/solve";
-        rec.estimatedVramMb = max(1024.0, cast(double) topology.clauseCount * 0.00005);
-        rec.estimatedSolveTimeMs = max(100.0, cast(double) topology.clauseCount * 0.00001);
-        rec.estimatedCreditCost = 3.0;
-        rec.rationale = format(
-            "Massive CNF instance (%s clauses). Routing to SUTRA high-throughput native CPU C engine (abstracted as 'nitro').",
-            topology.clauseCount
+    // 2. Hardware Verification / BMC Domain Protection
+    // As established by the Lane Discipline architecture: Navokoj is an OR/Combinatorial platform.
+    // Massive, pure-logic deep pipelines (Hardware BMC, Cryptography) require CDCL solvers (Minisat/Kissat)
+    // for exact trace logic. We explicitly detect and refuse these instances to prevent stochastic
+    // engines from plateauing on flat gradients, enforcing architectural boundaries at the API layer.
+    if (topology.structureClassification == "hardware_bmc") {
+        import reify.errors : UnsupportedDomainException;
+        throw new UnsupportedDomainException(
+            "Hardware Verification / Deep Logic pipeline detected. " ~
+            "Navokoj is an OR/Combinatorial optimization platform. Please route " ~
+            "this instance to an exact offline CDCL solver like Minisat, Kissat, or CaDiCaL."
         );
-        return rec;
     }
 
     // 3. Heavy WCNF or Large Soft Constraint Instance -> H100 GPU

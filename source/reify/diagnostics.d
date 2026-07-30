@@ -93,6 +93,9 @@ TopologyAnalysis analyzeModel(Model model) {
     if (categoricalCount == analysis.logicalVariables && analysis.logicalVariables > 0 && analysis.objectiveCount == 0 && analysis.parityCount == 0) {
         analysis.structureClassification = "qstate_categorical";
         analysis.suggestedAction = "Route to Modal L4 Q-State GPU solver for O(1) continuous state relaxation.";
+    } else if (M > 1_000_000 && analysis.objectiveCount == 0 && analysis.parityCount == 0) {
+        analysis.structureClassification = "hardware_bmc";
+        analysis.suggestedAction = "Refuse or route to offline CDCL solver (Kissat/CaDiCaL). Engine is memory-bounded for deep logic chains.";
     } else if (analysis.parityCount > 0 || analysis.xorDensity > 0.1) {
         analysis.structureClassification = "hybrid_xor";
         analysis.suggestedAction = "Route to NitroSAT v3 hybrid continuous engine with native Gaussian parity elimination.";

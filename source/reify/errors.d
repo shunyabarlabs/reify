@@ -13,6 +13,16 @@ class NavokojException : Exception {
 }
 
 /**
+ * Thrown when the Router explicitly refuses to process a model because it falls outside
+ * the architectural domain boundaries of the platform (e.g., Hardware BMC).
+ */
+class UnsupportedDomainException : NavokojException {
+    this(string message, string file = __FILE__, size_t line = __LINE__) {
+        super(message, file, line);
+    }
+}
+
+/**
  * The declared decision model is invalid.
  */
 class ModelException : NavokojException {
