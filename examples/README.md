@@ -37,16 +37,16 @@ The below are the numbers from Navokoj's nitro engine, which can be selected wit
 | **Wedding Seating Chart Demo** | [`wedding_seating_chart.d`](d/wedding_seating_chart.d) | 32 | 162 | **1,601** | **1,601 / 1,601** | **Optimal** | Relatable Hard Logic: families together, enemies apart, table capacities |
 | **Pigeonhole Principle (Proof of UNSAT)** | [`pigeonhole_unsat.d`](d/pigeonhole_unsat.d) | 132 | 132 | **2,492** | **UNSAT** | **Infeasible** | **Proves Verifier Integrity:** Explicitly catches mathematically impossible assignments |
 | **Kidney Exchange Paired Donation** | [`kidney_exchange_routing.d`](d/kidney_exchange_routing.d) | 528 | 76,145 | **327,016** | **100% Hard SAT** | **Optimal** | Life-critical NP-hard cycle packing, cold-ischemia limits & WCNF ethics |
-| **Hardware BMC 15M (Preimage)** | [`hardware_bmc_15m.d`](d/hardware_bmc_15m.d) | 2,525,000 | 2,525,000 | **15,000,100** | **14.5M / 15M** | **OOM Ceiling** | Proves HTTP/JSON infrastructure limits. Solved exactly by offline Minisat (1.8GB RAM), handled via SUTRA streaming bounded memory |
+| **Hardware BMC 15M (Preimage)** | [`hardware_bmc_15m.d`](d/hardware_bmc_15m.d) | 2,525,000 | 2,525,000 | **15,000,100** | **14.5M / 15M** | **OOM Ceiling** | Proves HTTP/JSON infrastructure limits. Solved exactly by offline Minisat; handled via SUTRA streaming fallback |
 
-### Lane Discipline: What We Solve vs. What We Don't
+### We mapped our boundary. Here's the receipt.
 
 The `hardware_bmc_15m.d` benchmark explicitly defines the architectural boundaries of the Navokoj platform. We ran this 15-million-clause instance through both Minisat (exact CDCL) and Navokoj's offline SUTRA engine (streaming heuristic).
 
 | Domain | Right Tool | Why |
 | :--- | :--- | :--- |
-| **Hardware verification, cryptography, deep logic chains** | **Minisat / Kissat / CaDiCaL** | CDCL traces contradictions through massive logic depth flawlessly, but devours gigabytes of RAM. |
-| **Scheduling, routing, allocation, kidney exchange, market arbitrage** | **Navokoj / SUTRA / Nitro** | Stochastic optimization with soft weights, anytime answers, and memory-bounded streaming (SUTRA processed the 375MB 15M-clause file using just 207MB of RAM). |
+| **Hardware verification, cryptography, deep logic chains** | **Minisat / Kissat / CaDiCaL** | CDCL explicitly traces contradictions through massive logic depth. |
+| **Scheduling, routing, allocation, kidney exchange, market arbitrage** | **Navokoj / SUTRA / Nitro** | Stochastic optimization with soft weights, anytime answers, and scale. |
 
 Navokoj is an Operations Research and Combinatorial optimization platform—not an exact hardware verification solver.
 
