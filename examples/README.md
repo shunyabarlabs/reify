@@ -36,6 +36,8 @@ The below are the numbers from Navokoj's nitro engine, which can be selected wit
 | **Car Sequencing (CSPLib #1)** | [`car_sequencing_classic.d`](d/car_sequencing_classic.d) | 48 | 91 | **2,078** | **2,078 / 2,078** | **Optimal** | Classic sliding-window station capacity, 100% SAT in 0.02s |
 | **Wedding Seating Chart Demo** | [`wedding_seating_chart.d`](d/wedding_seating_chart.d) | 32 | 162 | **1,601** | **1,601 / 1,601** | **Optimal** | Relatable Hard Logic: families together, enemies apart, table capacities |
 | **Pigeonhole Principle (Proof of UNSAT)** | [`pigeonhole_unsat.d`](d/pigeonhole_unsat.d) | 132 | 132 | **2,492** | **UNSAT** | **Infeasible** | **Proves Verifier Integrity:** Explicitly catches mathematically impossible assignments |
+| **Kidney Exchange Paired Donation** | [`kidney_exchange_routing.d`](d/kidney_exchange_routing.d) | 528 | 76,145 | **327,016** | **100% Hard SAT** | **Optimal** | Life-critical NP-hard cycle packing, cold-ischemia limits & WCNF ethics |
+
 
 Build the D examples together with the compiler sources:
 
