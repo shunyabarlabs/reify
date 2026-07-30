@@ -33,6 +33,9 @@ The below are the numbers from Navokoj's nitro engine, which can be selected wit
 | **Hypersonic Intercept Dispatch** | [`hypersonic_intercept_dispatch.d`](d/hypersonic_intercept_dispatch.d) | 304 | 512 | **784** | **100% SAT** | **Optimal** | Mach 8+ target tracking, Doppler radar caps & GF(2) 360-degree shield parity in 0.024s |
 | **CRISPR gRNA Off-Target Design** | [`crispr_gRNA_offtarget_design.d`](d/crispr_gRNA_offtarget_design.d) | 1,024 | 6,105 | **20,353** | **20,353 / 20,353** | **Optimal** | 16 target sites, 64 candidates, 64 off-targets, Hamming $\ge 4$ & GC thermal bounds in 0.070s |
 | **Subsea WDM Wavelength Routing** | [`subsea_wdm_wavelength_routing.d`](d/subsea_wdm_wavelength_routing.d) | 256 | 1,281 | **4,925** | **4,925 / 4,925** | **Optimal** | 16 transatlantic cable spans, 16 DWDM wavelengths, continuity & OSNR limits in 0.039s |
+| **Car Sequencing (CSPLib #1)** | [`car_sequencing_classic.d`](d/car_sequencing_classic.d) | 48 | 91 | **2,078** | **2,078 / 2,078** | **Optimal** | Classic sliding-window station capacity, 100% SAT in 0.02s |
+| **Wedding Seating Chart Demo** | [`wedding_seating_chart.d`](d/wedding_seating_chart.d) | 32 | 162 | **1,601** | **1,601 / 1,601** | **Optimal** | Relatable Hard Logic: families together, enemies apart, table capacities |
+| **Pigeonhole Principle (Proof of UNSAT)** | [`pigeonhole_unsat.d`](d/pigeonhole_unsat.d) | 132 | 132 | **2,492** | **UNSAT** | **Infeasible** | **Proves Verifier Integrity:** Explicitly catches mathematically impossible assignments |
 
 Build the D examples together with the compiler sources:
 
