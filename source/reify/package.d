@@ -6,6 +6,11 @@ module reify;
 public import reify.app;
 public import reify.backend;
 public import reify.navokoj.backend : NavokojBackend;
+public import reify.local.backend :
+    CommandSolverBackend,
+    createLocalBackend,
+    executeLocalWithFallback,
+    solveLocal;
 public import reify.navokoj.client :
     NavokojClient,
     RequestOptions,

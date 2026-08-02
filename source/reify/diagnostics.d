@@ -21,6 +21,7 @@ struct TopologyAnalysis {
     size_t parityCount;
     size_t symbolicConstraints;
     size_t objectiveCount;
+    size_t weightedConstraintCount;
     
     double alpha;                     // Clause-to-variable ratio (M / N)
     bool nearPhaseTransition;          // True if near 3-SAT phase transition (3.8 <= alpha <= 4.8)
@@ -40,6 +41,7 @@ struct TopologyAnalysis {
         val["parity_count"] = JSONValue(cast(long) parityCount);
         val["symbolic_constraints"] = JSONValue(cast(long) symbolicConstraints);
         val["objective_count"] = JSONValue(cast(long) objectiveCount);
+        val["weighted_constraint_count"] = JSONValue(cast(long) weightedConstraintCount);
         val["alpha_density"] = JSONValue(alpha);
         val["near_phase_transition"] = JSONValue(nearPhaseTransition);
         val["xor_density"] = JSONValue(xorDensity);
@@ -68,6 +70,16 @@ TopologyAnalysis analyzeModel(Model model) {
     analysis.clauseCount = model.internalNativeClauses.length;
     analysis.parityCount = model.internalParityConstraints.length;
     analysis.objectiveCount = model.internalObjectives.length;
+    foreach (constraint; model.internalConstraints) {
+        if (constraint.level != ConstraintLevel.hard) {
+            ++analysis.weightedConstraintCount;
+        }
+    }
+    foreach (clause; model.internalNativeClauses) {
+        if (clause.level != ConstraintLevel.hard) {
+            ++analysis.weightedConstraintCount;
+        }
+    }
 
     const N = max(1, analysis.logicalVariables);
     const M = analysis.clauseCount + analysis.symbolicConstraints;
@@ -90,16 +102,16 @@ TopologyAnalysis analyzeModel(Model model) {
     analysis.categoricalEntropy = categoricalCount > 0 ? totalEntropy / cast(double) categoricalCount : 0.0;
 
     // Classification logic
-    if (categoricalCount == analysis.logicalVariables && analysis.logicalVariables > 0 && analysis.objectiveCount == 0 && analysis.parityCount == 0) {
+    if (categoricalCount == analysis.logicalVariables && analysis.logicalVariables > 0 && analysis.objectiveCount == 0 && analysis.weightedConstraintCount == 0 && analysis.parityCount == 0) {
         analysis.structureClassification = "qstate_categorical";
         analysis.suggestedAction = "Route to Modal L4 Q-State GPU solver for O(1) continuous state relaxation.";
-    } else if (M > 1_000_000 && analysis.objectiveCount == 0 && analysis.parityCount == 0) {
+    } else if (M > 1_000_000 && analysis.objectiveCount == 0 && analysis.weightedConstraintCount == 0 && analysis.parityCount == 0) {
         analysis.structureClassification = "hardware_bmc";
         analysis.suggestedAction = "Refuse or route to offline CDCL solver (Kissat/CaDiCaL). Engine is memory-bounded for deep logic chains.";
     } else if (analysis.parityCount > 0 || analysis.xorDensity > 0.1) {
         analysis.structureClassification = "hybrid_xor";
         analysis.suggestedAction = "Route to NitroSAT v3 hybrid continuous engine with native Gaussian parity elimination.";
-    } else if (analysis.objectiveCount > 0) {
+    } else if (analysis.objectiveCount > 0 || analysis.weightedConstraintCount > 0) {
         analysis.structureClassification = "wcnf_soft";
         analysis.suggestedAction = "Route to Modal H100 GPU anytime continuous flow with WalkSAT hard repair.";
     } else if (M > 10_000) {

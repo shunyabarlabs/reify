@@ -40,6 +40,20 @@ class CapabilityException : NavokojException {
     }
 }
 
+/** A configured local solver could not execute or produce a usable result. */
+class BackendException : NavokojException {
+    this(string message, string file = __FILE__, size_t line = __LINE__) {
+        super(message, file, line);
+    }
+}
+
+/** The local staging filesystem cannot hold the expanded solver artifact. */
+class DiskSpaceException : BackendException {
+    this(string message, string file = __FILE__, size_t line = __LINE__) {
+        super(message, file, line);
+    }
+}
+
 /**
  * A transport-level or API-level request failed.
  */

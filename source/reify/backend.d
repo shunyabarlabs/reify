@@ -31,7 +31,9 @@ struct Capabilities {
     /// `hardwareAccess` qualifies: it constrains the hardware choice even
     /// when no explicit size limits are set.
     bool hasAccountLimits() const {
-        return maxVariables > 0 || maxClauses > 0 || hardwareAccess.length > 0;
+        return maxVariables > 0 || maxClauses > 0 ||
+            hardwareAccess.length > 0 || engines.length > 0 ||
+            concurrentRequests > 0;
     }
 
     /// Serialize to JSON for the `reify capabilities` CLI command and for
@@ -78,6 +80,13 @@ struct BackendOptions {
     string credential;
     string engine;
     string hardware;
+    string backend = "auto";
+    string executable;
+    string[] arguments;
+    string tempDirectory;
+    ulong diskReserveBytes = 1_048_576;
+    /// Test/diagnostic hook. Zero means query the filesystem normally.
+    ulong availableDiskSpaceOverride;
     double timeoutBudgetSeconds;
     Duration transportTimeout = dur!"seconds"(60);
 }

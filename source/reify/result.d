@@ -298,6 +298,9 @@ enum RunStatus {
 
 struct SolveResult {
     RunStatus status;
+    /// True only when the selected backend explicitly certified an optimum.
+    /// Feasible assignments from anytime solvers remain false.
+    bool optimal;
     Solution solution;
     Score score;
     VerificationReport verification;
@@ -314,6 +317,7 @@ struct SolveResult {
     JSONValue toJson() const {
         JSONValue[string] root;
         root["status"] = JSONValue(status.to!string);
+        root["optimal"] = JSONValue(optimal);
         root["solution"] = solution is null
             ? JSONValue(null)
             : solution.toJson();
@@ -1056,6 +1060,13 @@ ObjectiveResult[] evaluateObjectives(Model model, Solution solution) {
 SolveResult buildSolveResult(CompiledModel compiled, JSONValue raw) {
     SolveResult result;
     result.rawResponse = raw;
+    if (
+        raw.type == JSONType.object &&
+        ("optimal" in raw.object) !is null &&
+        raw.object["optimal"].type == JSONType.true_
+    ) {
+        result.optimal = true;
+    }
     result.server = normalizeResponse(raw);
     result.solution = hydrate(compiled, result.server);
     result.verification = verify(compiled.model, result.solution);

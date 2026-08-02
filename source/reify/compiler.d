@@ -37,7 +37,14 @@ struct CompileOptions {
     // representation such as Q-State. The runnable app sets its hosted API
     // default explicitly to `nitro`.
     string engine = "auto";
+    /// Local or hosted backend selector. `auto` keeps the hosted router path;
+    /// names such as openwbo/kissat select a local subprocess adapter.
+    string backend = "auto";
     string hardware;
+    /// Routing guarantee requested by the caller: auto, exact, feasible, or
+    /// anytime. The compiler carries this through to the router; it does not
+    /// change the lowering by itself.
+    string solvePolicy = "auto";
     double timeoutBudgetSeconds = 0.0;
     double minSatisfaction = -1.0;
     double minWeightedSatisfaction = -1.0;
@@ -185,6 +192,16 @@ void validateModel(Model model, CompileOptions options = CompileOptions()) {
     }
     if (options.engine.length == 0) {
         throw new ModelException("engine cannot be empty");
+    }
+    if (
+        options.solvePolicy != "auto" &&
+        options.solvePolicy != "exact" &&
+        options.solvePolicy != "feasible" &&
+        options.solvePolicy != "anytime"
+    ) {
+        throw new ModelException(
+            "solvePolicy must be one of auto, exact, feasible, or anytime"
+        );
     }
     if (
         !options.maximumEncodedWeight.isFinite ||

@@ -96,8 +96,11 @@ One value of one variable's domain, paired with the SAT literal that selects
 it.
 
 ### 2.8 RoutingRecommendation (`router.d:21`)
-The output of the router. Carries engine, hardware, target endpoint, and
-estimates. `refused = true` is the refusal sentinel for over-sized models.
+The output of the router. Carries backend family, hosted engine, hardware,
+target endpoint, correctness guarantee (`exact`, `feasible`, or `anytime`),
+ordered fallback backends, and cost/time estimates. `refused = true` is the
+refusal sentinel for over-sized models or when the live account advertises no
+compatible engine.
 
 ### 2.9 Capabilities (`backend.d:13`)
 The server-side envelope: engines, max variables / clauses, hardware access,
@@ -501,23 +504,64 @@ weights as cost rather than dominance.
 
 ### 6.6 Engine selection algorithm (`router.d`)
 
-`recommendRouteByTopology` is a five-step decision:
+`recommendRouteByTopology` is a capability-aware policy decision:
 
-1. **Q-State categorical** — every variable is categorical, no objectives,
-   no parity, only `eq / neq / allDifferent`. Route to GPU L4.
-2. **Massive clause count** — `> 5M` clauses, no objectives. Route to nitro/CPU.
-3. **Heavy WCNF** — `> 100K` clauses or any objective. Route to nitro/H100.
-4. **Hybrid XOR** — parity density `> 0.3` or `structureClassification ==
-   "hybrid_xor"`. Route to hybrid/L4.
-5. **Default** — nitro/CPU for the residual small-to-medium case.
+1. Build symbolic topology facts, including encoded size, parity, explicit
+   objectives, and weighted constraints (soft/medium constraints count even
+   when no explicit objective is declared).
+2. Select the representation family: Q-State for eligible all-categorical
+   hard models, native parity for eligible hard XOR models, and CNF/WCNF for
+   the remaining models.
+3. Keep small weighted models on CPU Nitro. Reserve H100 for genuinely large
+   encodings or many weighted terms; objective count alone does not justify a
+   GPU route.
+4. Attach a correctness guarantee and fallback chain. Weighted routes expose
+   Open-WBO/MaxHS/RC2; hard XOR routes expose CryptoMiniSat/Kissat/CaDiCaL;
+   hard CNF routes expose Kissat/CaDiCaL/MiniSat.
+5. Reconcile the route against the live account envelope. If an advertised
+   engine list exists, it is authoritative: use a compatible advertised
+   engine or refuse explicitly.
 
 `applyAccountLimits` then either:
 
 - **Refuses** (sets `refused = true`) when the model exceeds
-  `caps.maxVariables` or `caps.maxClauses`.
+  `caps.maxVariables` or `caps.maxClauses`, or when no compatible advertised
+  engine exists.
 - **Downgrades** GPU→CPU when the account's `hardwareAccess` does not include
   the recommended hardware. The empty list is treated as "unknown" and the
   topology choice stands.
+
+`NavokojApp.solveAuto` analyzes the symbolic model, fetches capabilities,
+selects the route, and only then compiles. This prevents the compiler from
+emitting Q-State or native XOR for an account that cannot execute that
+representation. It performs a second size reconciliation after lowering,
+because integer and categorical encodings can expand substantially.
+
+### 6.6.1 Local backend selection and disk fallback
+
+`CompileOptions.backend` (or CLI `--backend`) selects a local command adapter:
+
+```text
+WCNF:   openwbo (open-wbo), loandra, maxhs (max-hs), rc2, uwrmaxsat,
+        pacose, wmaxcdcl, maxcdcl, evalmaxsat
+DIMACS: kissat, glucose, minisat, cadical, cryptominisat
+```
+
+The adapter stages the expanded artifact only after checking
+`getAvailableDiskSpace(tempDirectory)` against a conservative size estimate
+plus a reserve. A write failure is treated as disk pressure. The selected
+backend's fallback chain is tried next; if all local staging attempts fail for
+disk reasons and an API key is available, `NavokojApp` returns to the hosted
+router instead of leaving the request unsolved.
+
+Executables can be configured without shell interpolation using environment
+variables such as `REIFY_OPENWBO_PATH`, `REIFY_KISSAT_PATH`, and
+`REIFY_CRYPTOMINISAT_PATH`. The parser accepts the standard `s`, `v`, and `o`
+solver lines, plus MiniSat's bare status/result-file format. It only marks a
+result `optimal` when the solver explicitly reports `OPTIMUM FOUND`. Every
+assignment still passes Reify's local hard constraint verifier. API callers can
+override command arguments with `{input}` and `{output}` placeholders; the
+MiniSat adapter supplies a result-file path automatically when omitted.
 
 ### 6.7 Transport timeout reconciliation (`client.d:561–613`)
 

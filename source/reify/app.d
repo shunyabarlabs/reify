@@ -6,7 +6,7 @@ module reify.app;
 import reify.navokoj.client : NavokojClient, RequestOptions, defaultBaseUrl;
 import reify.navokoj.backend : NavokojBackend;
 import reify.transport : HttpTransport;
-import reify.backend : Capabilities;
+import reify.backend : BackendOptions, Capabilities;
 import reify.compiler;
 import reify.dimacs : dimacsToDocumentJson;
 import reify.diagnostics;
@@ -15,6 +15,7 @@ import reify.model;
 import reify.opb : opbToDocumentJson;
 import reify.result;
 import reify.router;
+import reify.local.backend : solveLocal;
 
 import std.algorithm : endsWith;
 import std.conv : to;
@@ -105,6 +106,47 @@ final class NavokojApp {
         }
 
         if (options.compilation.engine == "auto") {
+            if (options.compilation.backend != "auto" &&
+                options.compilation.backend != "navokoj") {
+                auto localOptions = options.compilation;
+                // Local command adapters consume DIMACS/WCNF, never the
+                // hosted Q-State/native-parity wire representations.
+                localOptions.engine = options.compilation.backend;
+                localOptions.preferQState = false;
+                localOptions.preferNativeParity = false;
+                auto compiled = compile(input, localOptions);
+                auto topology = analyzeCompiled(compiled);
+                auto recommendation = recommendRouteByTopology(
+                    topology,
+                    localOptions
+                );
+                BackendOptions backendOptions;
+                backendOptions.backend = options.compilation.backend;
+                backendOptions.timeoutBudgetSeconds =
+                    options.compilation.timeoutBudgetSeconds;
+                backendOptions.transportTimeout =
+                    options.request.transportTimeout;
+                try {
+                    return solveLocal(
+                        compiled,
+                        backendOptions,
+                        options.compilation.backend,
+                        recommendation.fallbackBackends
+                    );
+                } catch (DiskSpaceException error) {
+                    // A local artifact can expand beyond the available disk
+                    // after lowering. If credentials are available, return to
+                    // the hosted router, which does not stage that artifact.
+                    if (options.request.apiKey.length == 0 &&
+                        environment.get("NAVOKOJ_API_KEY", "").length == 0) {
+                        throw error;
+                    }
+                    auto remoteOptions = options;
+                    remoteOptions.compilation.backend = "auto";
+                    remoteOptions.compilation.engine = "auto";
+                    return solveAuto(input, remoteOptions, transport);
+                }
+            }
             return solveAuto(input, options, transport);
         }
 
@@ -135,13 +177,16 @@ final class NavokojApp {
         AppSolveOptions options = AppSolveOptions(),
         HttpTransport transport = null
     ) {
-        auto compiled = compile(input, options.compilation);
-        auto topology = analyzeCompiled(compiled);
-
         auto request = options.request;
         if (request.apiKey.length == 0) {
             request.apiKey = environment.get("NAVOKOJ_API_KEY", "");
         }
+
+        // Analyze the symbolic model before lowering so the router can choose
+        // a representation compatible with the account (for example, lower a
+        // categorical model to CNF when Q-State is unavailable).
+        auto model = build(input);
+        auto topology = analyzeModel(model);
 
         // Fresh-per-solve capabilities fetch — no TTL cache.
         auto backend = new NavokojBackend(
@@ -154,7 +199,38 @@ final class NavokojApp {
         // applyAccountLimits in router.d handles both refusal and downgrade.
         auto recommendation = recommendRoute(topology, options.compilation, caps);
 
-        return new NavokojClient(transport).solve(compiled, request, recommendation);
+        if (recommendation.isRefusal()) {
+            throw new CapabilityException(recommendation.rationale);
+        }
+
+        auto compileOptions = options.compilation;
+        // The selected route must drive lowering. Otherwise the compiler may
+        // emit Q-State/native XOR before the account-aware router has chosen a
+        // compatible hosted engine.
+        compileOptions.engine = recommendation.engine;
+        if (compileOptions.hardware.length == 0) {
+            compileOptions.hardware = recommendation.hardware;
+        }
+        auto compiled = reify.compiler.compile(model, compileOptions);
+
+        // Reconcile encoded size after lowering as well as symbolic size
+        // before lowering. Integer and categorical encodings can expand by
+        // orders of magnitude.
+        auto compiledTopology = analyzeCompiled(compiled);
+        auto finalRecommendation = recommendRoute(
+            compiledTopology,
+            compileOptions,
+            caps
+        );
+        if (finalRecommendation.isRefusal()) {
+            throw new CapabilityException(finalRecommendation.rationale);
+        }
+
+        return new NavokojClient(transport).solve(
+            compiled,
+            request,
+            finalRecommendation
+        );
     }
 
     /**
@@ -278,6 +354,7 @@ int runNavokojApp(
             const apiKey = cli.apiKey.length > 0 ? cli.apiKey : environment.get("NAVOKOJ_API_KEY", "");
             string cmd = "echo '{}' | NAVOKOJ_API_KEY=" ~ apiKey ~ " ldc2 -i -Isource -run " ~ cli.inputPath ~ " " ~ cli.command;
             if (cli.engine.length > 0) cmd ~= " --engine " ~ cli.engine;
+            if (cli.backend.length > 0 && cli.backend != "auto") cmd ~= " --backend " ~ cli.backend;
             if (cli.hardware.length > 0) cmd ~= " --hardware " ~ cli.hardware;
             if (cli.apiKey.length > 0) cmd ~= " --api-key " ~ cli.apiKey;
             if (cli.pretty) cmd ~= " --pretty";
@@ -298,6 +375,7 @@ int runNavokojApp(
 
         CompileOptions compileOptions;
         compileOptions.engine = cli.engine;
+        compileOptions.backend = cli.backend;
         compileOptions.hardware = cli.hardware;
         compileOptions.timeoutBudgetSeconds = cli.timeoutSeconds;
         compileOptions.minSatisfaction = cli.minSatisfaction;
@@ -436,6 +514,7 @@ string navokojAppUsage() {
         "  --api-key <token>          API key (default: NAVOKOJ_API_KEY)\n" ~
         "  --base-url <url>           API base URL\n" ~
         "  --engine <name>            Solver engine (default: auto — router picks)\n" ~
+        "  --backend <name>           Local backend (openwbo, maxhs, kissat, ... )\n" ~
         "  --hardware <name>          Optional hardware target\n" ~
         "  --timeout <seconds>        Solver timeout budget\n" ~
         "  --min-satisfaction <0..1>  Stop after this clause satisfaction\n" ~
@@ -454,6 +533,7 @@ private struct CliOptions {
     string apiKey;
     string baseUrl = defaultBaseUrl;
     string engine = "auto";
+    string backend = "auto";
     string hardware;
     double timeoutSeconds = 0.0;
     double minSatisfaction = -1.0;
@@ -524,6 +604,9 @@ private CliOptions parseCli(string[] args) {
                 break;
             case "--engine":
                 options.engine = value;
+                break;
+            case "--backend":
+                options.backend = value.toLower;
                 break;
             case "--hardware":
                 options.hardware = value;

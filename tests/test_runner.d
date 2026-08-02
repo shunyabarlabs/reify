@@ -8,6 +8,7 @@ import reify.navokoj.client : NavokojClient, RequestOptions;
 import reify.transport : HttpResponse, HttpTransport;
 import reify.document : documentApp;
 import reify.result : buildSolveResult, normalizeResponse;
+import reify.local.backend : CommandSolverBackend;
 
 import std.algorithm : canFind;
 import std.conv : to;
@@ -2104,6 +2105,105 @@ private void testRecommendRouteWithCapabilities() {
     );
 }
 
+private void testRouterGuaranteesAndEngineAvailability() {
+    auto weighted = new Model("router-weighted");
+    auto equity = weighted.integerVar("equity", 0, 100);
+    weighted.prefer("prefer equity", greaterEqual(equity, integer(50)), 4);
+    auto topology = analyzeModel(weighted);
+
+    auto defaultRoute = recommendRoute(topology);
+    check(
+        defaultRoute.engine == "nitro" &&
+        defaultRoute.hardware == "cpu_native",
+        "Small weighted models stay on CPU Nitro"
+    );
+    check(
+        defaultRoute.guarantee == "feasible",
+        "Heuristic weighted routing reports feasible rather than optimal"
+    );
+    check(
+        defaultRoute.fallbackBackends.length >= 3 &&
+        defaultRoute.fallbackBackends[0] == "openwbo",
+        "Weighted routes expose an exact fallback chain"
+    );
+
+    CompileOptions exact;
+    exact.solvePolicy = "exact";
+    auto exactRoute = recommendRoute(topology, exact);
+    check(
+        exactRoute.guarantee == "exact",
+        "Explicit exact policy is preserved in the route contract"
+    );
+
+    auto categorical = new Model("router-qstate-availability");
+    auto slot = categorical.categoricalVar("slot", ["am", "pm"]);
+    categorical.require("morning", slot.equals("am"));
+    auto categoricalTopology = analyzeModel(categorical);
+
+    Capabilities nitroOnly;
+    nitroOnly.engines = ["nitro"];
+    auto downgraded = recommendRoute(categoricalTopology, CompileOptions(), nitroOnly);
+    check(
+        downgraded.engine == "nitro" &&
+        downgraded.targetEndpoint == "/v1/solve",
+        "Unavailable Q-State falls back to an advertised Nitro engine"
+    );
+
+    Capabilities unrelatedOnly;
+    unrelatedOnly.engines = ["schedule"];
+    auto refused = recommendRoute(categoricalTopology, CompileOptions(), unrelatedOnly);
+    check(
+        refused.isRefusal() &&
+        refused.rationale.canFind("unavailable"),
+        "Router refuses when no compatible hosted engine is advertised"
+    );
+}
+
+private void testLocalCommandBackendAndDiskGuard() {
+    auto model = new Model("local-command");
+    auto flag = model.booleanVar("flag");
+    model.require("flag must be true", flag);
+    CompileOptions options;
+    options.engine = "minisat";
+    auto compiled = compile(model, options);
+
+    BackendOptions command;
+    command.executable = "/bin/sh";
+    command.arguments = [
+        "-c",
+        "printf 's SATISFIABLE\\nv 1 0\\n'"
+    ];
+    auto response = new CommandSolverBackend("minisat", "/bin/sh")
+        .execute(compiled, command);
+    auto result = buildSolveResult(compiled, response.raw);
+    check(
+        result.feasible,
+        "Local command adapter parses a standard SAT assignment"
+    );
+
+    command.arguments = [
+        "-c",
+        "printf 'SATISFIABLE\\n1 0\\n'"
+    ];
+    auto minisatStyle = new CommandSolverBackend("minisat", "/bin/sh")
+        .execute(compiled, command);
+    auto minisatResult = buildSolveResult(compiled, minisatStyle.raw);
+    check(
+        minisatResult.feasible,
+        "Local command adapter parses MiniSat bare status/output lines"
+    );
+
+    command.availableDiskSpaceOverride = 1;
+    bool caught;
+    try {
+        new CommandSolverBackend("minisat", "/bin/sh")
+            .execute(compiled, command);
+    } catch (DiskSpaceException error) {
+        caught = true;
+    }
+    check(caught, "Local adapter refuses staging when disk space is insufficient");
+}
+
 private void testSolveAutoRouting() {
     // Compile a tiny document, stub capabilities then a successful solve,
     // and verify solveAuto wires the call order and applies the routing
@@ -2159,6 +2259,51 @@ private void testSolveAutoRouting() {
     check(
         sentPayload.object["hardware"].str == "cpu_native",
         "Router-selected hardware reached the wire request"
+    );
+}
+
+private void testSolveAutoCompilesForAdvertisedEngine() {
+    auto app = documentApp();
+    auto doc = parseJSON(
+        `{"name":"qstate-fallback","variables":[` ~
+        `{"name":"left","type":"categorical","states":["am","pm"]},` ~
+        `{"name":"right","type":"categorical","states":["am","pm"]}],` ~
+        `"constraints":[{"name":"separate","expression":{"op":"different",` ~
+        `"left":"left","right":"right"}}]}`
+    );
+
+    auto fake = new SequenceTransport();
+    fake.queue ~= HttpResponse(
+        200,
+        `{"engines":["nitro"],"maxVariables":1000,"maxClauses":10000,` ~
+        `"hardwareAccess":["cpu_native"],"tier":"mini"}`,
+        null
+    );
+
+    CompileOptions nitro;
+    nitro.engine = "nitro";
+    auto solveStub = documentApp().compile(doc, nitro);
+    long[string] values;
+    values["left"] = 0;
+    values["right"] = 1;
+    fake.queue ~= HttpResponse(
+        200,
+        cnfResponseFor(solveStub, values).toString(),
+        null
+    );
+
+    AppSolveOptions options;
+    options.request.apiKey = "secret";
+    options.request.baseUrl = "https://example.invalid/";
+    auto result = app.solveAuto(doc, options, fake);
+
+    check(result.feasible, "Engine-compatible lowering returns a feasible result");
+    auto sentPayload = parseJSON(fake.observedBodies[1]);
+    check(
+        ("clauses" in sentPayload.object) !is null &&
+        ("constraints" in sentPayload.object) is null &&
+        sentPayload.object["engine"].str == "nitro",
+        "Unavailable Q-State is lowered to CNF for advertised Nitro"
     );
 }
 
@@ -2244,7 +2389,10 @@ int main() {
     testHybridParityVerification();
     testTopologyDiagnosticsAndAutoRouting();
     testRecommendRouteWithCapabilities();
+    testRouterGuaranteesAndEngineAvailability();
+    testLocalCommandBackendAndDiskGuard();
     testSolveAutoRouting();
+    testSolveAutoCompilesForAdvertisedEngine();
     testCapabilitiesCliCommand();
 
     writeln("navokoj-app tests passed: ", assertions, " assertions");

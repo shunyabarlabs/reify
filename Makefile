@@ -1,6 +1,7 @@
 LDC ?= ldc2
 BUILD_DIR := build
 LIBREIFY := $(BUILD_DIR)/libreify.a
+REIFY_SOURCES := $(wildcard source/reify/*.d) $(wildcard source/reify/*/*.d)
 
 # Reify is compiled once into a static archive. Every consumer (CLI, examples,
 # test harnesses, the OPB unittest) links against it. Editing one example now
@@ -12,7 +13,7 @@ all: build
 
 libreify: $(LIBREIFY)
 
-$(LIBREIFY):
+$(LIBREIFY): $(REIFY_SOURCES)
 	@mkdir -p $(BUILD_DIR)
 	$(LDC) --lib -wi -Isource -i source/reify/package.d -od=$(BUILD_DIR) -of=$(LIBREIFY)
 
