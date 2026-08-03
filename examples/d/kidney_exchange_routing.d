@@ -222,30 +222,29 @@ void main() {
     writeln(compiled.summary().toPrettyString());
     stdout.flush();
 
-    // ------------------------------------------------------------------------
-    // SOLVE VIA NAVOKOJ SOLVER ENGINE
-    // ------------------------------------------------------------------------
-    writeln("\n=== Solving via Navokoj Solver Substrate (MaxSAT/WCNF) ===");
+    writeln("\n=== Writing WCNF file for offline MaxSAT benchmarking ===");
     stdout.flush();
-    import std.process : environment;
-
-    string apiKey = environment.get("NAVOKOJ_API_KEY", "");
-    if (apiKey.length == 0) return;
-
-    import reify.navokoj.client : NavokojClient, RequestOptions;
-    import reify.router : RoutingRecommendation;
-
-    RequestOptions reqOpts;
-    reqOpts.apiKey = apiKey;
-    reqOpts.transportTimeout = dur!"seconds"(300);
-
-    auto client = new NavokojClient();
-
-    RoutingRecommendation rec;
-    rec.engine = "nitro";
-    rec.hardware = "cpu";
-
-    auto result = client.solveRaw(compiled, reqOpts, rec);
-    writeln("\n=== Navokoj Response ===");
-    writeln(result.toPrettyString());
+    import std.stdio : File;
+    auto f = File("kidney_exchange.wcnf", "w");
+    
+    long topWeight = 1_000_000_000; // Massive top weight for hard clauses
+    f.writefln("p wcnf %d %d %d", compiled.generatedVariableCount, compiled.clauses.length, topWeight);
+    
+    foreach (clause; compiled.clauses) {
+        long w = topWeight;
+        // Check if soft clause (usually level > hard, but we can check weight or level directly)
+        import reify.model : ConstraintLevel;
+        if (clause.level != ConstraintLevel.hard) {
+            w = cast(long) clause.weight;
+        }
+        f.write(w, " ");
+        foreach (lit; clause.literals) {
+            f.write(lit, " ");
+        }
+        f.writeln("0");
+    }
+    f.close();
+    
+    writeln("Successfully wrote kidney_exchange.wcnf!");
+    writeln("You can now test this benchmark on an offline MaxSAT solver like Open-WBO or PySAT RC2.");
 }

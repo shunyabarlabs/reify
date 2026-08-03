@@ -16,13 +16,15 @@ copy under `source/reify/*.d` unless otherwise noted.
 | F-1 | Model a finite decision problem in D with Boolean, bounded-integer, and categorical variables. | `model.d:535` (`Model`) |
 | F-2 | Express hard, medium, and soft constraints symbolically. | `model.d:853–901` |
 | F-3 | Express `maximize` / `minimize` linear objectives with priority levels. | `model.d:960–966`, `model.d:1166–1195` |
-| F-4 | Lower symbolic expressions to CNF / WCNF / OPB. | `compiler.d:115–148`, `opb.d`, `dimacs.d` |
+| F-4 | Lower symbolic expressions to CNF / WCNF / Q-State and optionally native parity. | `compiler.d:115–148` |
 | F-5 | Choose a solver backend based on problem topology and account limits. | `router.d:63–149`, `diagnostics.d` |
 | F-6 | Submit the compiled artifact to a remote solver via HTTPS. | `navokoj/client.d:77–101` |
 | F-7 | Hydrate the wire response back into domain-named assignments. | `result.d:508–788` |
 | F-8 | Re-verify every constraint locally against the returned assignment. | `result.d:813–1002` |
 | F-9 | Explain a chosen solution at the model level. | `explain.d` |
 | F-10 | Parse raw DIMACS and OPB inputs into the same Model IR. | `dimacs.d`, `opb.d` |
+| F-11 | Export compiled models as CNF, DIMACS, WCNF, OPB, or Navokoj IR with a verification manifest. | `exports.d` |
+| F-12 | Execute selected local SAT/MaxSAT command backends with disk preflight and fallback. | `local/backend.d`, `app.d` |
 
 ### 1.2 Non-Functional Requirements
 
@@ -36,13 +38,38 @@ copy under `source/reify/*.d` unless otherwise noted.
 | NF-6 | Loopback-only allowance for non-HTTPS local testing. | `isLoopbackHttpUrl` (`client.d:503–559`) |
 | NF-7 | Deterministic replays of native DIMACS clauses. | `addExactClause` (`compiler.d:1679–1709`) preserves literal order |
 
-### 1.3 Out-of-Scope (current version)
+### 1.3 Current capability matrix
+
+This is the user-facing inventory of what is shipped today. The lower-level
+sections that follow describe the implementation details.
+
+| Area | Shipped capability | Notes / boundary |
+|------|--------------------|------------------|
+| Decision modeling | Boolean, bounded-integer, and categorical variables; scalar and family/block helpers | Variables are finite and named; models freeze after successful compilation. |
+| Symbolic expressions | Boolean logic (`not`, `and`, `or`, `xor`, implication, equivalence), integer arithmetic with constants, comparisons, Boolean-to-integer conversion, and categorical equality/inequality | Multiplication is supported only when one side is constant. |
+| Constraints | Hard, weighted medium, weighted soft, exact native CNF clauses, XOR/parity, cardinality (`atMost`, `atLeast`, `exactly`, `between`), `allDifferent`, and reusable relational group constraints | Soft/medium semantics are preserved in WCNF and hosted weighted requests. |
+| Objectives | Linear `maximize` / `minimize` objectives with non-negative priority levels | Nonlinear MILP/QP objectives are not available. |
+| Relational builders | Cartesian decision spaces, typed dimensions, filtering, grouping, exactly-one / at-most-one / at-least-one, parity, soft preferences, and logical/physical plan explanations | `builders.d` lowers relational operations into the normal Model IR. |
+| Temporal scheduling | SpaceTime ordered time dimensions, durations, horizon fit, availability windows, precedence (`before`), non-overlap, capacity, value preferences, composable recipes, and explain plans | SpaceTime is a finite scheduling vocabulary, not a general modal-logic engine. |
+| Compilation | CNF, WCNF, Q-State categorical lowering, optional native parity, order encoding for bounded integers, pseudo-Boolean BDD lowering, provenance, and compile-size guards | Q-State requires a compatible hard categorical model; native parity is optional. |
+| Standard formats | JSON model documents, raw DIMACS CNF, and OPB input; exports for CNF JSON, DIMACS, WCNF, OPB, and Navokoj IR | CNF, DIMACS, and OPB exports reject soft semantics; export WCNF for weighted models. |
+| Hosted execution | HTTPS solve, diagnose, and capabilities calls through the Navokoj client; injectable `HttpTransport` for tests or alternate transports | Credentials stay in request options, outside the model artifact. |
+| Local execution | DIMACS adapters: Kissat, Glucose, MiniSat, CaDiCaL, CryptoMiniSat. WCNF adapters: Open-WBO, Loandra, MaxHS, RC2, UWrMaxSat, Pacose, WMaxCDCL, MaxCDCL, EvalMaxSAT | Standard command-line protocols are supported. RC2 and unusual CLIs may need a wrapper or custom arguments. |
+| Routing | Topology analysis, Q-State/Nitro/hybrid hosted routing, hardware and account-limit reconciliation, exact/feasible/anytime route contracts, explicit backend selection, and ordered fallbacks | Exactness is reported only when the selected solver explicitly certifies optimum; every assignment is locally verified. |
+| Resource protection | BDD, pseudo-Boolean, encoded-variable, encoded-clause, DIMACS, OPB, and formula limits; local artifact disk-space preflight; local fallback to hosted execution when credentials exist | A local subprocess currently relies on solver-specific timeout arguments; HTTP transport timeout is enforced separately. |
+| Results and trust | Domain-named hydration, missing/inconsistent decision states, score/objective evaluation, partial-result preservation, hard/soft verification, semantic-operation provenance, decision explanations, and verification manifests | Raw solver literals are not the public solution surface. |
+| CLI lifecycle | `validate`, `compile`, `analyze`, `diagnose`, `solve`, and `capabilities`; JSON/DIMACS/OPB input auto-detection; engine/backend/hardware/timeout/threshold controls | `--backend` selects a local adapter; `--engine` selects or constrains the hosted engine. |
+
+### 1.4 Out-of-Scope (current version)
 
 - Nonlinear integer arithmetic (`encodeLinearComparison` throws
   `CapabilityException` for `*` of two variable forms — `compiler.d:1576–1589`).
 - Native MILP / QP objective backends.
-- A solver adapter other than the first-party Navokoj client (the interface
-  exists in `backend.d:94–109`; no other implementation is shipped).
+- Complete modal-logic operators such as □ and ◇; SpaceTime is a finite
+  temporal scheduling vocabulary.
+- Automatic installation or normalization of third-party solver binaries.
+  The shipped local adapter expects a standard command-line executable or a
+  caller-provided wrapper/configuration.
 
 ---
 
@@ -124,8 +151,12 @@ verification, objectives, server telemetry, semantic operations.
 
 ### 2.14 Exceptions (`errors.d`)
 - `NavokojException` — base
+- `UnsupportedDomainException` — router-recognized domain boundary, such as
+  large hardware-BMC logic that should use an offline CDCL solver
 - `ModelException` — invalid model
 - `CapabilityException` — cannot be represented by any current backend
+- `BackendException` — local solver startup or result failure
+- `DiskSpaceException` — local artifact staging cannot fit the filesystem
 - `ApiException` — transport / API failure, with `deliveryState`
 - `ProtocolException` — wire contract violation
 
@@ -147,6 +178,7 @@ The `reify` umbrella module (`package.d`) re-exports:
 | `CompileOptions` | Compile budget | `compiler.d:35` |
 | `NavokojClient`, `RequestOptions`, `defaultBaseUrl` | Wire client | `navokoj/client.d` |
 | `NavokojBackend` | `SolverBackend` adapter | `navokoj/backend.d` |
+| `CommandSolverBackend`, `createLocalBackend`, `solveLocal` | Local DIMACS/WCNF command adapters | `local/backend.d` |
 | `NavokojApp`, `decisionApp` | High-level orchestration | `app.d:45` |
 | `NavokojException`, `CapabilityException`, `ModelException`, `ApiException`, `ProtocolException` | Errors | `errors.d` |
 | `BuildSolution`, `BuildStatus`, `DecisionStatus`, `Score`, `VerificationReport`, `SolveResult` | Result types | `result.d` |
@@ -155,6 +187,7 @@ The `reify` umbrella module (`package.d`) re-exports:
 | `DocumentParser` (via `documentApp`) | JSON model ingest | `document.d` |
 | `HttpTransport`, `CurlTransport` | Pluggable HTTP | `transport.d` |
 | `reify.opb.*`, `reify.dimacs.*` | Standard format I/O | `opb.d`, `dimacs.d` |
+| `ExportArtifact`, `emit`, `verificationManifest` | Portable solver artifacts and provenance manifests | `exports.d` |
 | `reify.spacetime.*` | Temporal recipes | `spacetime.d` |
 | `reify.explain.*` | Audit trail | `explain.d` |
 
@@ -182,6 +215,7 @@ commands:
 | `--api-key <token>` | Bearer key; default `NAVOKOJ_API_KEY` env |
 | `--base-url <url>` | Override endpoint |
 | `--engine <name>` | Solver engine (default `auto` → router) |
+| `--backend <name>` | Local SAT/MaxSAT command backend; `auto` keeps hosted routing |
 | `--hardware <name>` | Hardware target |
 | `--timeout <seconds>` | Solver budget |
 | `--min-satisfaction <0..1>` | Stop at threshold |
@@ -222,8 +256,9 @@ interface SolverResponseParser {
 }
 ```
 
-`NavokojBackend` (`navokoj/backend.d:28`) is the shipped implementation.
-Adapter authors implement both interfaces.
+`NavokojBackend` (`navokoj/backend.d:28`) and
+`CommandSolverBackend` (`local/backend.d:315`) are the shipped implementations.
+Adapter authors can implement the same interface for another solver or service.
 
 ### 3.5 Transport Interface (`transport.d:33–41`)
 
@@ -651,10 +686,10 @@ retried safely; `acceptanceUnknown` requires an idempotency guarantee.
 | Module | Lines |
 |--------|------:|
 | `model.d` | 1,421 |
-| `compiler.d` | 2,054 |
+| `compiler.d` | 2,078 |
 | `opb.d` | 2,505 |
-| `result.d` | 1,320 |
-| `app.d` | 613 |
+| `result.d` | 1,332 |
+| `app.d` | 735 |
 | `navokoj/client.d` | 680 |
 | `formula.d` | 2,006 |
 | `spacetime.d` | 1,135 |
@@ -663,15 +698,17 @@ retried safely; `acceptanceUnknown` requires an idempotency guarantee.
 | `explain.d` | 613 |
 | `builders.d` | 506 |
 | `exports.d` | 354 |
-| `router.d` | 208 |
-| `diagnostics.d` | 150 |
+| `router.d` | 341 |
+| `diagnostics.d` | 166 |
 | `transport.d` | 89 |
-| `errors.d` | 98 |
+| `errors.d` | 123 |
+| `backend.d` | 118 |
 | `navokoj/backend.d` | 61 |
-| `package.d` | 46 |
+| `local/backend.d` | 531 |
+| `package.d` | 52 |
 | `navokoj/response_parser.d` | 37 |
 | `app.d` (entry) | 10 |
-| **Total** | **15,662** |
+| **Total** | **16,541** |
 
 ## Appendix B — Verified performance characteristics
 

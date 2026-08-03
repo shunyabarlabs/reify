@@ -221,38 +221,18 @@ void main() {
     writeln(compiled.summary().toPrettyString());
     stdout.flush();
 
-    // ------------------------------------------------------------------------
-    // SOLVE VIA NAVOKOJ SOLVER ENGINE
-    // ------------------------------------------------------------------------
-    writeln("\n=== Solving via Navokoj Solver Substrate ===");
+    writeln("\n=== Writing CNF file for offline Minisat benchmarking ===");
     stdout.flush();
-    import std.process : environment;
-
-    string apiKey = environment.get("NAVOKOJ_API_KEY", "");
-    if (apiKey.length == 0) return;
-
-    import reify.navokoj.client : NavokojClient, RequestOptions;
-    import reify.router : RoutingRecommendation;
-    import reify.errors : ApiException;
-
-    RequestOptions reqOpts;
-    reqOpts.apiKey = apiKey;
-    reqOpts.transportTimeout = dur!"seconds"(180);
-
-    auto client = new NavokojClient();
-
-    RoutingRecommendation rec;
-    rec.engine = "nitro";
-    rec.hardware = "cpu";
-
-    try {
-        auto result = client.solveRaw(compiled, reqOpts, rec);
-        writeln("\n=== Navokoj Response ===");
-        writeln(result.toPrettyString());
-        stdout.flush();
-    } catch (ApiException e) {
-        writeln("\nStatus Code: ", e.statusCode);
-        writeln("API Error Raw Body: ", e.rawBody);
-        stdout.flush();
+    import std.stdio : File;
+    auto f = File("warehouse_mapf_20x_extreme.cnf", "w");
+    
+    f.writefln("p cnf %d %d", compiled.generatedVariableCount, compiled.clauses.length);
+    foreach (clause; compiled.clauses) {
+        foreach (lit; clause.literals) f.write(lit, " ");
+        f.writeln("0");
     }
+    f.close();
+    
+    writeln("Successfully wrote warehouse_mapf_20x_extreme.cnf!");
+    writeln("You can now test this benchmark on an offline CDCL solver like Minisat.");
 }

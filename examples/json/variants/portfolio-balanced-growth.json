@@ -1,0 +1,17 @@
+{
+  "name": "portfolio-balanced-growth",
+  "variables": [
+    {"name": "allocation[equity]", "type": "integer", "lower": 0, "upper": 100},
+    {"name": "allocation[bonds]", "type": "integer", "lower": 0, "upper": 100},
+    {"name": "allocation[cash]", "type": "integer", "lower": 0, "upper": 100}
+  ],
+  "constraints": [
+    {"name": "fully invested", "expression": {"op": "eq", "left": {"op": "sum", "args": ["allocation[equity]", "allocation[bonds]", "allocation[cash]"]}, "right": 100}},
+    {"name": "equity risk cap", "expression": {"op": "le", "left": "allocation[equity]", "right": 55}},
+    {"name": "bond floor", "expression": {"op": "ge", "left": "allocation[bonds]", "right": 25}},
+    {"name": "liquidity reserve", "expression": {"op": "ge", "left": "allocation[cash]", "right": 10}}
+  ],
+  "objectives": [
+    {"name": "risk-adjusted return", "sense": "maximize", "expression": {"op": "sum", "args": [{"op": "mul", "left": 9, "right": "allocation[equity]"}, {"op": "mul", "left": 5, "right": "allocation[bonds]"}, {"op": "mul", "left": 2, "right": "allocation[cash]"}]}}
+  ]
+}

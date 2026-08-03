@@ -1,0 +1,13 @@
+{
+  "name": "exam-four-course",
+  "variables": [
+    {"name": "slot[algorithms]", "type": "categorical", "states": ["mon", "tue", "wed", "thu"]},
+    {"name": "slot[networks]", "type": "categorical", "states": ["mon", "tue", "wed", "thu"]},
+    {"name": "slot[operating-systems]", "type": "categorical", "states": ["mon", "tue", "wed", "thu"]},
+    {"name": "slot[security]", "type": "categorical", "states": ["mon", "tue", "wed", "thu"]}
+  ],
+  "constraints": [
+    {"name": "each exam gets a separate day", "expression": {"op": "all_different", "args": ["slot[algorithms]", "slot[networks]", "slot[operating-systems]", "slot[security]"]}},
+    {"name": "algorithms and networks conflict", "expression": {"op": "different", "left": "slot[algorithms]", "right": "slot[networks]"}}
+  ]
+}

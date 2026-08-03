@@ -1,0 +1,18 @@
+{
+  "name": "service-ha-topology",
+  "variables": [
+    {"name": "api_gateway", "type": "boolean"},
+    {"name": "worker_pool", "type": "boolean"},
+    {"name": "primary_database", "type": "boolean"},
+    {"name": "replica_database", "type": "boolean"},
+    {"name": "cache", "type": "boolean"},
+    {"name": "monitoring", "type": "boolean"}
+  ],
+  "constraints": [
+    {"name": "gateway needs primary database", "expression": {"op": "implies", "left": "api_gateway", "right": "primary_database"}},
+    {"name": "workers need cache", "expression": {"op": "implies", "left": "worker_pool", "right": "cache"}},
+    {"name": "replica needs primary", "expression": {"op": "implies", "left": "replica_database", "right": "primary_database"}},
+    {"name": "primary database wants monitoring", "level": "soft", "weight": 8, "expression": {"op": "implies", "left": "primary_database", "right": "monitoring"}},
+    {"name": "gateway wants high availability", "level": "soft", "weight": 5, "expression": {"op": "implies", "left": "api_gateway", "right": "replica_database"}}
+  ]
+}

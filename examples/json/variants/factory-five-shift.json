@@ -1,0 +1,19 @@
+{
+  "name": "factory-five-shift",
+  "variables": [
+    {"name": "workers[receiving]", "type": "integer", "lower": 0, "upper": 40},
+    {"name": "workers[assembly]", "type": "integer", "lower": 0, "upper": 40},
+    {"name": "workers[quality]", "type": "integer", "lower": 0, "upper": 40},
+    {"name": "workers[packing]", "type": "integer", "lower": 0, "upper": 40},
+    {"name": "workers[dispatch]", "type": "integer", "lower": 0, "upper": 40}
+  ],
+  "constraints": [
+    {"name": "headcount budget", "expression": {"op": "eq", "left": {"op": "sum", "args": ["workers[receiving]", "workers[assembly]", "workers[quality]", "workers[packing]", "workers[dispatch]"]}, "right": 40}},
+    {"name": "receiving minimum", "expression": {"op": "ge", "left": "workers[receiving]", "right": 5}},
+    {"name": "assembly minimum", "expression": {"op": "ge", "left": "workers[assembly]", "right": 12}},
+    {"name": "quality minimum", "expression": {"op": "ge", "left": "workers[quality]", "right": 6}},
+    {"name": "packing minimum", "expression": {"op": "ge", "left": "workers[packing]", "right": 7}},
+    {"name": "dispatch minimum", "expression": {"op": "ge", "left": "workers[dispatch]", "right": 5}}
+  ],
+  "objectives": [{"name": "maximize assembly throughput", "sense": "maximize", "expression": "workers[assembly]"}]
+}
